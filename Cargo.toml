@@ -1,8 +1,8 @@
-[package]
-name = "pb"
-version = "0.1.0"
-edition = "2021"
+[workspace]
+members = ["pb-core", "pb-filesystem", "pb-lang-rust"]
+resolver = "2"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[dependencies]
+[workspace.package]
+authors = ["Parker Timmerman <parker@parkertimmerman.com>"]
+license = "MIT OR Apache-2.0"
+include = ["Cargo.toml", "src", "README.md", "LICENSE-APACHE", "LICENSE-MIT"]
