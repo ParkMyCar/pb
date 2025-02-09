@@ -7,3 +7,13 @@ license.workspace = true
 include.workspace = true
 
 [dependencies]
+cfg-if = "1"
+futures = "0.3"
+pb-ore = { path = "../pb-ore" }
+thiserror = "2"
+tokio = { version = "1", features = [
+    "macros",
+    "rt-multi-thread",
+    "rt",
+    "sync",
+], default-features = false }

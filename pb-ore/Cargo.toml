@@ -1,0 +1,10 @@
+[package]
+name = "pb-ore"
+version = "0.1.0"
+edition = "2021"
+authors.workspace = true
+license.workspace = true
+include.workspace = true
+
+[dependencies]
+paste = "1"
