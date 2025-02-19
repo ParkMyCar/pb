@@ -1,5 +1,9 @@
-pub mod platform;
 pub mod filesystem;
+pub mod handle;
+pub mod path;
+pub mod platform;
+
+use path::PbFilename;
 
 /// Errors that can be returned from filesystem operations.
 #[derive(Debug, thiserror::Error)]
@@ -21,6 +25,8 @@ pub enum Error {
 pub struct FileMetadata {
     /// Size of a file in bytes.
     size: u64,
+    /// Type of the file.
+    kind: FileType,
     /// Inode number of the file.
     inode: u64,
     /// File mode/permissions.
@@ -48,4 +54,23 @@ pub struct Timespec {
     ///
     /// Not all filesystems provide this, thus often it will be 0.
     nanos: i64,
+}
+
+/// Kind of object on the filesystem.
+#[derive(Debug, Copy, Clone)]
+pub enum FileType {
+    File,
+    Directory,
+    Symlink,
+}
+
+/// Information returned from an individual entry when listing a directory.
+#[derive(Debug, Clone)]
+pub struct DirectoryEntry {
+    /// Inode number of the file.
+    inode: u64,
+    /// Name of the entry.
+    name: PbFilename,
+    /// Kind of entry.
+    kind: FileType,
 }
