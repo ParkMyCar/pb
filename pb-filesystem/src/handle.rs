@@ -9,8 +9,9 @@ use std::future::IntoFuture;
 use std::pin::Pin;
 use std::sync::Arc;
 
+use crate::filesystem::BlockPool;
 use crate::platform::{OpenOptions, PlatformFilenameType, PlatformPathType};
-use crate::DirectoryEntry;
+use crate::{DirectoryEntry, FileType};
 
 use super::filesystem::FilesystemWorker;
 use super::platform::{
@@ -23,10 +24,21 @@ pub type FileHandle = Handle<FileKind>;
 /// [`Handle`] to a directory.
 pub type DirectoryHandle = Handle<DirectoryKind>;
 
+/// Enum wrapper around all the different kinds of handles.
+pub enum HandleKind {
+    File(FileHandle),
+    Directory(DirectoryHandle),
+}
+
 /// Type level marker for a handle whose kind is not yet known.
 pub struct UnknownKind;
+
 /// Type level marker for a handle to a file.
-pub struct FileKind;
+pub struct FileKind {
+    /// Optimal blocksize for I/O.
+    optimal_blocksize: Option<usize>,
+}
+
 /// Type level marker for a handle to a directory.
 pub struct DirectoryKind {
     /// Global limiter of open file handles.
@@ -126,27 +138,47 @@ impl Handle<DirectoryKind> {
         Ok(files)
     }
 
-    pub async fn openat(&self, filename: String) -> Result<Handle, crate::Error> {
-        let permit = Semaphore::acquire_owned(Arc::clone(&self.kind.permits))
-            .await
-            .expect("filesystem shutting down");
-        let inner = self.to_inner();
-        let filename = PlatformFilenameType::try_new(filename)?;
-        let options = OpenOptions::READ_ONLY;
-        let handle = self
-            .worker
-            .run(move || FilesystemPlatform::openat(inner, filename, options))
-            .await?;
+    /// Open the file relative to this directory.
+    pub fn openat(&self, filename: String) -> HandleBuilder {
+        let directory = self.to_inner();
+        HandleBuilder::new(
+            self.worker.clone(),
+            self.drops_tx.clone(),
+            Arc::clone(&self.kind.permits),
+            HandleLocation::At {
+                directory,
+                filename,
+            },
+        )
+    }
+}
 
-        Ok(Handle {
-            inner: Some(handle),
-            permit: Some(permit),
-            worker: self.worker.clone(),
-            drops_tx: self.drops_tx.clone(),
-            // TODO(parkmycar): Maybe tag these diagnostics with openat context?
-            diagnostics: self.diagnostics.clone(),
-            kind: UnknownKind,
-        })
+impl Handle<FileKind> {
+    /// Read the contents of the file.
+    pub async fn read_with<'a, R, F>(&self, work: F) -> Result<R, crate::Error>
+    where
+        R: Send + 'static,
+        F: FnOnce(internal::ReadIterator) -> Result<R, crate::Error> + Send + 'static,
+    {
+        let inner = self.to_inner();
+        // Most filesystems have a block size of 4096.
+        //
+        // TODO: Consider using a multiple of the block size if the file requires more
+        // than 1 block to read.
+        let block_size = self.kind.optimal_blocksize.unwrap_or(4096);
+
+        self.worker
+            .run(move || {
+                let filestream = FilesystemPlatform::open_filestream(inner)?;
+                let result = BlockPool::BLOCK_POOL.with_borrow_mut(|pool| {
+                    let block = pool.get_block(block_size);
+                    let byte_iter = internal::ReadIterator::new(filestream, block);
+                    work(byte_iter)
+                });
+                FilesystemPlatform::close_filestream(filestream)?;
+                result
+            })
+            .await
     }
 }
 
@@ -205,6 +237,17 @@ pub struct FileDetails {
 #[derive(Debug)]
 pub struct DirectoryDetails;
 
+#[derive(Debug)]
+pub enum HandleLocation {
+    /// Opening a path directly.
+    Path(String),
+    /// Opening relative to a parent directory.
+    At {
+        directory: PlatformHandleType,
+        filename: String,
+    },
+}
+
 /// Builder struct for a [`Handle`].
 pub struct HandleBuilder<Details = UnknownDetails> {
     /// Worker that runs I/O operations.
@@ -216,8 +259,8 @@ pub struct HandleBuilder<Details = UnknownDetails> {
     /// Reason this [`Handle`] was opened.
     pub(crate) diagnostics: Option<Cow<'static, str>>,
 
-    /// Path we're opening.
-    pub(crate) path: String,
+    /// Location we're opening.
+    pub(crate) location: HandleLocation,
     /// Details for opening a specific kind of file handle.
     pub(crate) details: Details,
 }
@@ -227,14 +270,14 @@ impl HandleBuilder<UnknownDetails> {
         worker: FilesystemWorker,
         drops_tx: UnboundedSender<DroppedHandle>,
         permits: Arc<Semaphore>,
-        path: String,
+        location: HandleLocation,
     ) -> HandleBuilder<UnknownDetails> {
         HandleBuilder {
             worker,
             drops_tx,
             permits,
             diagnostics: None,
-            path,
+            location,
             details: UnknownDetails,
         }
     }
@@ -254,7 +297,7 @@ impl<D> HandleBuilder<D> {
             drops_tx: self.drops_tx,
             permits: self.permits,
             diagnostics: self.diagnostics,
-            path: self.path,
+            location: self.location,
             details: FileDetails::default(),
         }
     }
@@ -266,7 +309,7 @@ impl<D> HandleBuilder<D> {
             drops_tx: self.drops_tx,
             permits: self.permits,
             diagnostics: self.diagnostics,
-            path: self.path,
+            location: self.location,
             details: DirectoryDetails,
         }
     }
@@ -310,11 +353,27 @@ impl IntoFuture for HandleBuilder {
 
             // Open this handle with just read only perms.
             let options = OpenOptions::READ_ONLY;
-            let path = PlatformPathType::try_new(self.path)?;
-            let handle = self
-                .worker
-                .run(move || FilesystemPlatform::open(path, options))
-                .await?;
+            let handle = match self.location {
+                HandleLocation::Path(path) => {
+                    let path = PlatformPathType::try_new(path)?;
+                    let handle = self
+                        .worker
+                        .run(move || FilesystemPlatform::open(path, options))
+                        .await?;
+                    handle
+                }
+                HandleLocation::At {
+                    directory,
+                    filename,
+                } => {
+                    let filename = PlatformFilenameType::try_new(filename)?;
+                    let handle = self
+                        .worker
+                        .run(move || FilesystemPlatform::openat(directory, filename, options))
+                        .await?;
+                    handle
+                }
+            };
 
             let handle = Handle {
                 inner: Some(handle),
@@ -340,22 +399,55 @@ impl IntoFuture for HandleBuilder<FileDetails> {
             let permit = Semaphore::acquire_owned(self.permits)
                 .await
                 .expect("failed to acquire permit");
-            let path = PlatformPathType::try_new(self.path)?;
-            let handle = self
-                .worker
-                .run(move || FilesystemPlatform::open(path, self.details.flags))
-                .await?;
 
-            let handle = Handle {
-                inner: Some(handle),
-                permit: Some(permit),
-                worker: self.worker,
-                drops_tx: self.drops_tx,
-                diagnostics: self.diagnostics,
-                kind: FileKind,
+            let (handle, stat) = match self.location {
+                HandleLocation::Path(path) => {
+                    let path = PlatformPathType::try_new(path)?;
+                    self.worker
+                        .run(move || {
+                            let handle = FilesystemPlatform::open(path, self.details.flags)?;
+                            // TODO(parkmycar): Always stating a file when opening feels wasteful?
+                            let stat = FilesystemPlatform::fstat(handle.clone())?;
+                            Ok((handle, stat))
+                        })
+                        .await?
+                }
+                HandleLocation::At {
+                    directory,
+                    filename,
+                } => {
+                    let filename = PlatformFilenameType::try_new(filename)?;
+                    self.worker
+                        .run(move || {
+                            let handle = FilesystemPlatform::openat(
+                                directory,
+                                filename,
+                                self.details.flags,
+                            )?;
+                            // TODO(parkmycar): Always stating a file when opening feels wasteful?
+                            let stat = FilesystemPlatform::fstat(handle.clone())?;
+                            Ok((handle, stat))
+                        })
+                        .await?
+                }
             };
 
-            Ok(handle)
+            if stat.kind != FileType::File {
+                Err(crate::Error::NotAFile("todo".into()))
+            } else {
+                let kind = FileKind {
+                    optimal_blocksize: stat.optimal_blocksize,
+                };
+                let handle = Handle {
+                    inner: Some(handle),
+                    permit: Some(permit),
+                    worker: self.worker,
+                    drops_tx: self.drops_tx,
+                    diagnostics: self.diagnostics,
+                    kind,
+                };
+                Ok(handle)
+            }
         };
         Box::pin(fut)
     }
@@ -375,11 +467,27 @@ impl IntoFuture for HandleBuilder<DirectoryDetails> {
                 .expect("failed to acquire permit");
 
             let options = OpenOptions::DIRECTORY;
-            let path = PlatformPathType::try_new(self.path)?;
-            let handle = self
-                .worker
-                .run(move || FilesystemPlatform::open(path, options))
-                .await?;
+            let handle = match self.location {
+                HandleLocation::Path(path) => {
+                    let path = PlatformPathType::try_new(path)?;
+                    let handle = self
+                        .worker
+                        .run(move || FilesystemPlatform::open(path, options))
+                        .await?;
+                    handle
+                }
+                HandleLocation::At {
+                    directory,
+                    filename,
+                } => {
+                    let filename = PlatformFilenameType::try_new(filename)?;
+                    let handle = self
+                        .worker
+                        .run(move || FilesystemPlatform::openat(directory, filename, options))
+                        .await?;
+                    handle
+                }
+            };
 
             let handle = Handle {
                 inner: Some(handle),
@@ -404,4 +512,66 @@ pub(crate) struct DroppedHandle {
     pub(crate) permit: OwnedSemaphorePermit,
     /// Diagnostics from the original handle.
     pub(crate) diagnostics: Option<Cow<'static, str>>,
+}
+
+pub mod internal {
+    use crate::filesystem::Block;
+    use crate::platform::{FilesystemPlatform, Platform, PlatformFileStreamType};
+    use pb_ore::iter::LendingIterator;
+
+    /// A [`LendingIterator`] that reads from a [`Handle`] and returns byte slices.
+    ///
+    /// [`Handle`]: crate::handle::Handle
+    pub struct ReadIterator<'a> {
+        /// Stream of the file we're reading from.
+        filestream: PlatformFileStreamType,
+        /// Re-usable block of memory for I/O.
+        block: &'a mut Block,
+        /// Is the iterator complete.
+        done: bool,
+    }
+
+    impl<'a> ReadIterator<'a> {
+        pub fn new(filestream: PlatformFileStreamType, block: &'a mut Block) -> Self {
+            ReadIterator {
+                filestream,
+                block,
+                done: false,
+            }
+        }
+    }
+
+    impl<'r> LendingIterator for ReadIterator<'r> {
+        type Item<'a>
+            = Result<&'a [u8], crate::Error>
+        where
+            Self: 'a,
+            'r: 'a;
+
+        fn next(&mut self) -> Option<Self::Item<'_>> {
+            // If we previously errored, or read 0 bytes, don't yield again.
+            if self.done {
+                return None;
+            }
+
+            // We re-use the block for each iteration so make sure it's cleared.
+            // self.block.clear();
+
+            // Read the next chunk.
+            match FilesystemPlatform::read(&mut self.filestream, self.block.as_mut()) {
+                // Done reading!
+                Ok(bytes_read) if bytes_read == 0 => {
+                    self.done = true;
+                    None
+                }
+                // Errored, so stop reading here.
+                Err(e) => {
+                    self.done = true;
+                    Some(Err(e))
+                }
+                // Yield the bytes we just read!
+                Ok(bytes_read) => Some(Ok(&self.block.as_ref()[..bytes_read])),
+            }
+        }
+    }
 }

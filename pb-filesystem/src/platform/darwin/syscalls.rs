@@ -1,11 +1,12 @@
 //! Syscalls used for the Darwin platform.
 
+use crate::platform::darwin::types::rlimit;
+
 use super::types::{self, c_char, c_int, dir_stream, dirent, file_descriptor};
 
 unsafe extern "C" {
     /// Open the file at `path` with the provided flags.
     pub unsafe fn open(path: *const c_char, flags: types::c_int, mode: u16) -> c_int;
-
     /// Open the file at the path relative to the provided file descriptor.
     pub unsafe fn openat(
         fildes: file_descriptor,
@@ -13,9 +14,11 @@ unsafe extern "C" {
         flags: types::c_int,
         mode: u16,
     ) -> c_int;
-
     /// Close a file handle.
     pub unsafe fn close(fildes: file_descriptor) -> c_int;
+
+    /// Read `nbytes` from the provided file descriptor into `buf`.
+    pub unsafe fn read(fildes: file_descriptor, buf: *mut u8, nbytes: usize) -> isize;
 
     /// Returns statistics about the file at `path`.
     pub unsafe fn stat(path: *const c_char, buf: *mut types::stat) -> c_int;
@@ -55,4 +58,7 @@ unsafe extern "C" {
     pub unsafe fn readdir(dirp: dir_stream) -> *const dirent;
     /// Close the directory stream and the associated file descriptor.
     pub unsafe fn closedir(dirp: dir_stream) -> c_int;
+
+    /// Get resource limits for the current process.
+    pub unsafe fn getrlimit(resource: c_int, limits: *mut rlimit) -> c_int;
 }

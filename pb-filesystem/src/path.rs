@@ -25,7 +25,7 @@ pub struct PbPath {
 /// See the docs comment on [`PbPath`] for specifics of this type.
 #[derive(Debug, Clone)]
 pub struct PbFilename {
-    inner: String,
+    pub inner: String,
 }
 
 impl PbFilename {

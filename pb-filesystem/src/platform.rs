@@ -36,6 +36,7 @@ pub trait Platform {
 
     type Handle: Debug + Clone;
     type DirStream: Debug + Clone;
+    type FileStream: Debug + Clone;
 
     fn open(path: Self::Path, options: OpenOptions) -> Result<Self::Handle, Error>;
     fn openat(
@@ -51,6 +52,12 @@ pub trait Platform {
     fn fsync(handle: Self::Handle) -> Result<(), Error>;
 
     fn listdir(handle: Self::Handle) -> Result<Vec<DirectoryEntry>, Error>;
+
+    fn open_filestream(handle: Self::Handle) -> Result<Self::FileStream, Error>;
+    fn close_filestream(handle: Self::FileStream) -> Result<(), Error>;
+    fn read(stream: &mut Self::FileStream, buf: &mut [u8]) -> Result<usize, Error>;
+
+    fn file_handle_max() -> Result<usize, Error>;
 }
 
 pub trait PlatformPath: Debug + Clone {
@@ -67,6 +74,8 @@ pub type PlatformHandleType = <FilesystemPlatform as Platform>::Handle;
 pub type PlatformPathType = <FilesystemPlatform as Platform>::Path;
 /// Type alias for the [`Platform::Filename`] associated type for the current [`FilesystemPlatform`].
 pub type PlatformFilenameType = <FilesystemPlatform as Platform>::Filename;
+/// TODO
+pub type PlatformFileStreamType = <FilesystemPlatform as Platform>::FileStream;
 
 cfg_if::cfg_if! {
     if #[cfg(target_os = "macos")] {

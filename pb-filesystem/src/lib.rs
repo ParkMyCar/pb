@@ -16,6 +16,8 @@ pub enum Error {
     NoProcess,
     #[error("Invalid or unexpected data was returned: {0}")]
     InvalidData(Box<str>),
+    #[error("Attempted to open a resource as a file, that wasn't a file")]
+    NotAFile(Box<str>),
     #[error("Unknown error: {0}")]
     Unknown(String),
 }
@@ -43,6 +45,8 @@ pub struct FileMetadata {
     ///
     /// Changes whenever file ownership, size, or link count changes.
     ctime: Timespec,
+    /// Optimal blocksize for I/O, if available.
+    optimal_blocksize: Option<usize>,
 }
 
 /// Time info returned from a `stat` call.
@@ -57,7 +61,7 @@ pub struct Timespec {
 }
 
 /// Kind of object on the filesystem.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum FileType {
     File,
     Directory,
@@ -68,9 +72,9 @@ pub enum FileType {
 #[derive(Debug, Clone)]
 pub struct DirectoryEntry {
     /// Inode number of the file.
-    inode: u64,
+    pub inode: u64,
     /// Name of the entry.
-    name: PbFilename,
+    pub name: PbFilename,
     /// Kind of entry.
-    kind: FileType,
+    pub kind: FileType,
 }

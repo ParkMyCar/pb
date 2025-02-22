@@ -3,7 +3,7 @@ use std::ffi::CString;
 
 use crate::path::PbFilename;
 use crate::platform::darwin::path::DarwinFilename;
-use crate::platform::darwin::types::{DarwinDirStream, DarwinHandle};
+use crate::platform::darwin::types::{rlimit, DarwinDirStream, DarwinFileStream, DarwinHandle};
 use crate::platform::{OpenOptions, Platform};
 use crate::{DirectoryEntry, FileMetadata, FileType, Timespec};
 
@@ -31,6 +31,7 @@ impl Platform for DarwinPlatform {
 
     type Handle = DarwinHandle;
     type DirStream = DarwinDirStream;
+    type FileStream = DarwinFileStream;
 
     fn open(path: Self::Path, options: OpenOptions) -> Result<Self::Handle, crate::Error> {
         let path = CString::from(path);
@@ -134,6 +135,43 @@ impl Platform for DarwinPlatform {
 
         Ok(entries)
     }
+
+    fn open_filestream(handle: Self::Handle) -> Result<Self::FileStream, crate::Error> {
+        // Duplicate the handle because as we call `read` the kernel internally advances
+        // a pointer and we want our higher level `Handle`s to be re-usable.
+        let result = unsafe { syscalls::dup(handle.into_raw()) };
+        let dup_handle = check_result(result)?;
+
+        Ok(DarwinFileStream::from_raw(dup_handle))
+    }
+
+    fn close_filestream(stream: Self::FileStream) -> Result<(), crate::Error> {
+        let result = unsafe { syscalls::close(stream.into_raw()) };
+        check_result(result)?;
+        Ok(())
+    }
+
+    fn read(stream: &mut Self::FileStream, buf: &mut [u8]) -> Result<usize, crate::Error> {
+        let buf_ptr = buf.as_mut_ptr();
+        let buf_len = buf.len();
+
+        let result = unsafe { syscalls::read(stream.into_raw(), buf_ptr, buf_len) };
+        if result < 0 {
+            Err(crate::Error::Unknown("TODO".to_string()))
+        } else {
+            let bytes_read = result.try_into().expect("checked that we're positive");
+            Ok(bytes_read)
+        }
+    }
+
+    fn file_handle_max() -> Result<usize, crate::Error> {
+        let mut limits = rlimit::default();
+        let result =
+            unsafe { syscalls::getrlimit(types::flags::RLIMIT_NPROC, &mut limits as *mut _) };
+        check_result(result)?;
+
+        Ok(usize::cast_from(limits.rlim_cur))
+    }
 }
 
 impl TryFrom<types::stat> for FileMetadata {
@@ -166,6 +204,14 @@ impl TryFrom<types::stat> for FileMetadata {
             FileType::File
         };
 
+        let optimal_blocksize = match stat.st_blksize {
+            ..0 => None,
+            x => {
+                let optimal: usize = x.try_into().expect("checked above that we're non-negative");
+                Some(optimal)
+            }
+        };
+
         let metadata = FileMetadata {
             size,
             kind,
@@ -175,6 +221,7 @@ impl TryFrom<types::stat> for FileMetadata {
             group: stat.st_gid,
             mtime,
             ctime,
+            optimal_blocksize,
         };
         Ok(metadata)
     }

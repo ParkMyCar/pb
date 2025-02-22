@@ -22,6 +22,21 @@ impl DarwinHandle {
 }
 
 #[derive(Debug, Copy, Clone)]
+pub struct DarwinFileStream {
+    inner: file_descriptor,
+}
+
+impl DarwinFileStream {
+    pub fn from_raw(val: file_descriptor) -> Self {
+        DarwinFileStream { inner: val }
+    }
+
+    pub fn into_raw(self) -> file_descriptor {
+        self.inner
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
 pub struct DarwinDirStream {
     pub(crate) inner: dir_stream,
 }
@@ -88,6 +103,24 @@ pub(crate) mod flags {
     /// Socker, from `readdir`.
     pub const DT_SOCK: u8 = 12;
 
+    // CPU time per process.
+    pub const RLIMIT_CPU: c_int = 0;
+    // File size.
+    pub const RLIMIT_FSIZE: c_int = 1;
+    // Data segment size.
+    pub const RLIMIT_DATA: c_int = 2;
+    // Stack size.
+    pub const RLIMIT_STACK: c_int = 3;
+    // Core file size.
+    pub const RLIMIT_CORE: c_int = 4;
+    // Address space (resident set size).
+    pub const RLIMIT_AS: c_int = 5;
+    // Locked-in-memory address space.
+    pub const RLIMIT_MEMLOCK: c_int = 6;
+    // Number of processes.
+    pub const RLIMIT_NPROC: c_int = 7;
+    // Number of open files.
+    pub const RLIMIT_NOFILE: c_int = 8;
 }
 
 /// Data returned by calls to the `stat` family of functions.
@@ -147,4 +180,15 @@ impl Default for dirent {
             d_name: [0; DARWIN_MAXPATHLEN],
         }
     }
+}
+
+pub type rlim_t = u64;
+
+/// Limits returned from `getrlimit`.
+#[repr(C)]
+#[derive(Default, Debug, Copy, Clone)]
+pub struct rlimit {
+    /// Current (soft) limit.
+    pub(crate) rlim_cur: rlim_t,
+    pub(crate) rlim_max: rlim_t,
 }
