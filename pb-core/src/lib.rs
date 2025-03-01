@@ -1,3 +1,14 @@
+//! Ideas:
+//! 
+//! 1. A "target discovery" phase that allows rules to read their own spec files and tell the build
+//!    system what to do. For example, the Rust rules could read Cargo.toml files and return targets
+//!    for those.
+//!    1a. First-class support for listing targets. For example, I had no idea that zstd supported
+//!        a separate multi-threaded build, it would be great to make that more discoverable.
+//! 
+//! 2. First-class support for rules to add subcommands, e.g. `cargo install`-like
+//!
+
 use pb_filesystem::filesystem::Filesystem;
 use pb_filesystem::path::PbPath;
 
