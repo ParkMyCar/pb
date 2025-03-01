@@ -8,6 +8,8 @@
 //! 
 //! 2. First-class support for rules to add subcommands, e.g. `cargo install`-like
 //!
+//! 3. First-class support for documenting targets. e.g. a `--help` like output where a library
+//!    author can document how one target differs from another.
 
 use pb_filesystem::filesystem::Filesystem;
 use pb_filesystem::path::PbPath;
