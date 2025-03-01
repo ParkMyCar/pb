@@ -13,6 +13,7 @@ blake3 = "1"
 cfg-if = "1"
 futures = "0.3"
 pb-ore = { path = "../pb-ore" }
+pb-types = { path = "../pb-types" }
 rayon = "1"
 thiserror = "2"
 tokio = { version = "1", features = [

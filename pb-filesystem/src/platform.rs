@@ -3,7 +3,7 @@
 use bitflags::bitflags;
 use std::fmt::Debug;
 
-use crate::{DirectoryEntry, Error, FileMetadata};
+use crate::{DirectoryEntry, Error, FileStat};
 
 mod todo;
 
@@ -46,8 +46,8 @@ pub trait Platform {
     ) -> Result<Self::Handle, Error>;
     fn close(handle: Self::Handle) -> Result<(), Error>;
 
-    fn stat(path: Self::Path) -> Result<FileMetadata, Error>;
-    fn fstat(handle: Self::Handle) -> Result<FileMetadata, Error>;
+    fn stat(path: Self::Path) -> Result<FileStat, Error>;
+    fn fstat(handle: Self::Handle) -> Result<FileStat, Error>;
 
     fn fsync(handle: Self::Handle) -> Result<(), Error>;
 

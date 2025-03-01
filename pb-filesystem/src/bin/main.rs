@@ -1,13 +1,12 @@
+#![allow(dead_code)]
+
 use std::collections::VecDeque;
-use std::future::Future;
-use std::pin::Pin;
 use std::sync::atomic::AtomicUsize;
 use std::sync::Arc;
 use std::time::Instant;
 
 use futures::StreamExt;
 use pb_filesystem::filesystem::Filesystem;
-use pb_filesystem::handle::{DirectoryHandle, Handle, HandleKind};
 use pb_filesystem::platform::{FilesystemPlatform, Platform};
 use pb_filesystem::FileType;
 use pb_ore::iter::LendingIterator;
@@ -22,7 +21,7 @@ async fn main() {
     let filesystem = Filesystem::new_tokio(tokio::runtime::Handle::current(), 1024);
 
     let root = filesystem
-        .open("/Users/parker.timmerman/Development/pt_forks".to_string())
+        .open("/Users/parker/Development".to_string())
         .as_directory()
         .await
         .unwrap();
@@ -58,23 +57,28 @@ async fn main() {
                     directories2.push_front((directory_, entry.name.inner));
                 }
                 FileType::File => {
+                    if !entry.name.inner.ends_with(".rs") {
+                        continue;
+                    }
+
                     let directory_ = Arc::clone(&directory);
                     let tx_ = tx.clone();
                     let count_ = Arc::clone(&count);
                     tokio::task::spawn(async move {
-                        let file = directory_.openat(entry.name.inner).as_file().await.unwrap();
+                        let (file, _stat) =
+                            directory_.openat(entry.name.inner).as_file().await.unwrap();
                         drop(directory_);
 
-                        // let mut buf: Vec<u8> = Vec::new();
-                        // let result = file
-                        //     .read_with(move |mut bytes| {
-                        //         while let Some(byte_result) = bytes.next() {
-                        //             let bytes = byte_result?;
-                        //             buf.extend(bytes);
-                        //         }
-                        //         Ok(buf)
-                        //     })
-                        //     .await;
+                        let mut buf: Vec<u8> = Vec::new();
+                        let _result = file
+                            .read_with(move |mut bytes| {
+                                while let Some(byte_result) = bytes.next() {
+                                    let bytes = byte_result?;
+                                    buf.extend(bytes);
+                                }
+                                Ok(buf)
+                            })
+                            .await;
                         count_.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                         file.close().await.expect("failed to close file");
                         tx_.unbounded_send(()).expect("receiver went away");
@@ -102,7 +106,7 @@ async fn main2() {
         .expect("failed to open");
     let start = Instant::now();
     for _ in 0..100_000 {
-        let handle = parent
+        let (handle, _stat) = parent
             .openat("filesystem.rs".to_string())
             .as_file()
             .await
@@ -128,7 +132,7 @@ async fn main2() {
         .to_string();
     let start = Instant::now();
     for _ in 0..100_000 {
-        let handle = filesystem
+        let (handle, _stat) = filesystem
             .open(path.to_string())
             .as_file()
             .await
@@ -186,7 +190,7 @@ async fn main5() {
     let stat2 = handle.stat().await.expect("failed to stat a 2nd time");
     println!("{stat2:?}");
 
-    let cargo_toml = handle
+    let (cargo_toml, _stat) = handle
         .openat("Cargo.toml".to_string())
         .as_file()
         .await
@@ -209,7 +213,7 @@ async fn main5() {
 
     let path = "/Users/parker.timmerman/Development/pt_forks/pb/pb-filesystem/src/filesystem.rs"
         .to_string();
-    let handle = filesystem
+    let (handle, _stat) = filesystem
         .open(path.to_string())
         .as_file()
         .await

@@ -1,11 +1,12 @@
 use pb_ore::cast::CastFrom;
+use pb_types::Timespec;
 use std::ffi::CString;
 
 use crate::path::PbFilename;
 use crate::platform::darwin::path::DarwinFilename;
 use crate::platform::darwin::types::{rlimit, DarwinDirStream, DarwinFileStream, DarwinHandle};
 use crate::platform::{OpenOptions, Platform};
-use crate::{DirectoryEntry, FileMetadata, FileType, Timespec};
+use crate::{DirectoryEntry, FileStat, FileType};
 
 mod path;
 mod syscalls;
@@ -81,24 +82,24 @@ impl Platform for DarwinPlatform {
         Ok(())
     }
 
-    fn stat(path: Self::Path) -> Result<FileMetadata, crate::Error> {
+    fn stat(path: Self::Path) -> Result<FileStat, crate::Error> {
         let path = CString::from(path);
         let mut raw_stat = types::stat::default();
 
         let result = unsafe { syscalls::stat(path.into_raw(), &mut raw_stat as *mut _) };
         check_result(result)?;
 
-        let metadata = FileMetadata::try_from(raw_stat)?;
+        let metadata = FileStat::try_from(raw_stat)?;
         Ok(metadata)
     }
 
-    fn fstat(handle: Self::Handle) -> Result<FileMetadata, crate::Error> {
+    fn fstat(handle: Self::Handle) -> Result<FileStat, crate::Error> {
         let mut raw_stat = types::stat::default();
 
         let result = unsafe { syscalls::fstat(handle.into_raw(), &mut raw_stat as *mut _) };
         check_result(result)?;
 
-        let metadata = FileMetadata::try_from(raw_stat)?;
+        let metadata = FileStat::try_from(raw_stat)?;
         Ok(metadata)
     }
 
@@ -174,7 +175,7 @@ impl Platform for DarwinPlatform {
     }
 }
 
-impl TryFrom<types::stat> for FileMetadata {
+impl TryFrom<types::stat> for FileStat {
     type Error = crate::Error;
 
     fn try_from(stat: types::stat) -> Result<Self, Self::Error> {
@@ -212,7 +213,7 @@ impl TryFrom<types::stat> for FileMetadata {
             }
         };
 
-        let metadata = FileMetadata {
+        let metadata = FileStat {
             size,
             kind,
             inode: stat.st_ino,

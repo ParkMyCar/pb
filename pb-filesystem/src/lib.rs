@@ -1,9 +1,12 @@
+#![allow(dead_code)]
+
 pub mod filesystem;
 pub mod handle;
 pub mod path;
 pub mod platform;
 
 use path::PbFilename;
+use pb_types::Timespec;
 
 /// Errors that can be returned from filesystem operations.
 #[derive(Debug, thiserror::Error)]
@@ -24,7 +27,7 @@ pub enum Error {
 
 /// Metadata about a file that is used to detect changes.
 #[derive(Debug, Copy, Clone)]
-pub struct FileMetadata {
+pub struct FileStat {
     /// Size of a file in bytes.
     size: u64,
     /// Type of the file.
@@ -47,17 +50,6 @@ pub struct FileMetadata {
     ctime: Timespec,
     /// Optimal blocksize for I/O, if available.
     optimal_blocksize: Option<usize>,
-}
-
-/// Time info returned from a `stat` call.
-#[derive(Debug, Copy, Clone)]
-pub struct Timespec {
-    /// Seconds.
-    secs: i64,
-    /// Nanoseconds.
-    ///
-    /// Not all filesystems provide this, thus often it will be 0.
-    nanos: i64,
 }
 
 /// Kind of object on the filesystem.

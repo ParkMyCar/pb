@@ -12,7 +12,7 @@ use crate::platform::PlatformPathType;
 
 use super::handle::{DroppedHandle, Handle};
 use super::platform::{FilesystemPlatform, Platform, PlatformPath};
-use super::FileMetadata;
+use super::FileStat;
 
 /// A safe Filesystem abstraction.
 ///
@@ -60,7 +60,7 @@ impl Filesystem {
         Ok(())
     }
 
-    pub async fn stat(&self, path: String) -> Result<FileMetadata, crate::Error> {
+    pub async fn stat(&self, path: String) -> Result<FileStat, crate::Error> {
         let path = PlatformPathType::try_new(path)?;
         let result = self.worker.run(|| FilesystemPlatform::stat(path)).await?;
         Ok(result)

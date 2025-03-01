@@ -27,11 +27,11 @@ impl Platform for TodoPlatform {
         todo!("close")
     }
 
-    fn stat(_path: String) -> Result<crate::FileMetadata, crate::Error> {
+    fn stat(_path: String) -> Result<crate::FileStat, crate::Error> {
         todo!("stat")
     }
 
-    fn fstat(_handle: Self::Handle) -> Result<crate::FileMetadata, crate::Error> {
+    fn fstat(_handle: Self::Handle) -> Result<crate::FileStat, crate::Error> {
         todo!("fstat")
     }
 

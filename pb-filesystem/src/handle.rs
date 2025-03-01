@@ -17,7 +17,7 @@ use super::filesystem::FilesystemWorker;
 use super::platform::{
     FilesystemPlatform, Platform, PlatformFilename, PlatformHandleType, PlatformPath,
 };
-use super::FileMetadata;
+use super::FileStat;
 
 /// [`Handle`] to a file.
 pub type FileHandle = Handle<FileKind>;
@@ -65,7 +65,7 @@ pub struct Handle<Kind = UnknownKind> {
 
 impl<A> Handle<A> {
     /// Get metadata about this handle.
-    pub async fn stat(&self) -> Result<FileMetadata, crate::Error> {
+    pub async fn stat(&self) -> Result<FileStat, crate::Error> {
         let inner = self.to_inner();
         let result = self
             .worker
@@ -391,7 +391,7 @@ impl IntoFuture for HandleBuilder {
 }
 
 impl IntoFuture for HandleBuilder<FileDetails> {
-    type Output = Result<Handle<FileKind>, crate::Error>;
+    type Output = Result<(Handle<FileKind>, FileStat), crate::Error>;
     type IntoFuture = Pin<Box<dyn Future<Output = Self::Output> + Send + Sync + 'static>>;
 
     fn into_future(self) -> Self::IntoFuture {
@@ -446,7 +446,7 @@ impl IntoFuture for HandleBuilder<FileDetails> {
                     diagnostics: self.diagnostics,
                     kind,
                 };
-                Ok(handle)
+                Ok((handle, stat))
             }
         };
         Box::pin(fut)

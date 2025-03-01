@@ -17,7 +17,13 @@
 /// [`PathBuf`]: std::path::PathBuf
 #[derive(Debug, Clone)]
 pub struct PbPath {
-    inner: String,
+    pub inner: String,
+}
+
+impl PbPath {
+    pub fn new(val: String) -> Result<Self, crate::Error> {
+        Ok(PbPath { inner: val })
+    }
 }
 
 /// Filename component of a [`PbPath`].
