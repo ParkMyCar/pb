@@ -1,0 +1,12 @@
+[package]
+name = "pb-rules-std"
+version = "0.1.0"
+edition = "2021"
+authors.workspace = true
+license.workspace = true
+include.workspace = true
+
+[dependencies]
+pb-rules-core = { path = "../pb-rules-core" }
+rmpv = "1.3"
+serde = { version = "1", features = ["derive"] }

@@ -10,6 +10,10 @@
 //!
 //! 3. First-class support for documenting targets. e.g. a `--help` like output where a library
 //!    author can document how one target differs from another.
+//! 
+//! 4. Define a logging spec so process wrappers can communicate debugging into with the build
+//!    system, most emit messages over a file descriptor.
+//! 
 
 use pb_filesystem::filesystem::Filesystem;
 use pb_filesystem::path::PbPath;

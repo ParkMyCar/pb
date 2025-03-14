@@ -1,5 +1,5 @@
 [workspace]
-members = ["pb-core", "pb-filesystem", "pb-lang-rust", "pb-metadata", "pb-ore", "pb-types"]
+members = ["pb-core", "pb-filesystem", "pb-lang-rust", "pb-metadata", "pb-ore", "pb-rules-core", "pb-rules-std", "pb-types"]
 resolver = "2"
 
 [workspace.package]
