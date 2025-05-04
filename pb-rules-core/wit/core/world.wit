@@ -1,0 +1,15 @@
+package pb:core@0.1.0;
+
+
+interface foobar {
+    world logger {
+        export logging;
+    }
+}
+world logger {
+    export logging;
+}
+
+world filesystem {
+    export read-filesystem;
+}

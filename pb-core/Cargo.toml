@@ -9,6 +9,13 @@ license.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+anyhow = "1"
 blake3 = "1"
 pb-filesystem = { path = "../pb-filesystem" }
-tokio = { version = "1", default-features = false, features = ["rt"] }
+wasmtime = { version = "32", features = [
+    "async",
+    "runtime",
+    "cranelift",
+    "component-model",
+] }
+tokio = { version = "1", default-features = false, features = ["rt", "macros"] }

@@ -1,0 +1,10 @@
+package pb:target@0.1.0;
+
+world target-resolver {
+    use pb:core/logging@0.1.0.{logger};
+
+    // import logger;
+
+    export resolver;
+    export types;
+}

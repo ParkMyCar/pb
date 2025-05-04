@@ -1,0 +1,5 @@
+package pb:core@0.1.0;
+
+world filesystem {
+    export read-filesystem;
+}
