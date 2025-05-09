@@ -1,62 +1,42 @@
 use anyhow::Result;
 use wasmtime::{component::types::ComponentItem, *};
 
-#[tokio::main]
-async fn main() -> Result<()> {
+fn main() -> Result<()> {
     // Modules can be compiled through either the text or binary format
-    let engine = Engine::default();
+    let mut config = Config::new();
+    config.wasm_component_model(true).wasm_multi_memory(true);
+    let engine = Engine::new(&config)?;
 
     let pb_core =
         wasmtime::component::Component::from_file(&engine, "pb_rules_core-component.wasm")?;
-    for (name, x) in pb_core.component_type().imports(&engine) {
-        println!("core import {name}: {x:?}");
-    }
-    for (name, x) in pb_core.component_type().exports(&engine) {
-        match &x {
-            ComponentItem::ComponentInstance(inst) => {
-                for (name, y) in inst.exports(&engine) {
-                    if let ComponentItem::ComponentFunc(f) = &y {
-                        let params: Vec<_> = f.params().collect();
-                        println!("{params:?}");
-                    }
-                    println!("core export nested {name}: {y:?}");
-                }
-            }
-            _ => panic!("foobar"),
-        }
-        println!("core export {name}: {x:?}");
-    }
-
     let pb_std = wasmtime::component::Component::from_file(&engine, "pb_rules_std-component.wasm")?;
-    for (name, x) in pb_std.component_type().imports(&engine) {
-        match &x {
-            ComponentItem::ComponentInstance(inst) => {
-                for (name, y) in inst.exports(&engine) {
-                    if let ComponentItem::ComponentFunc(f) = &y {
-                        let params: Vec<_> = f.params().collect();
-                        println!("{params:?}");
-                    }
-                    println!("std import nested {name}: {y:?}");
-                }
-            }
-            _ => panic!("foobar"),
-        }
-        println!("std import {name}: {x:?}");
-    }
-    for (name, x) in pb_std.component_type().exports(&engine) {
-        println!("std export {name}: {x:?}");
-    }
 
-    let linker = component::Linker::new(&engine);
+    let mut linker = component::Linker::new(&engine);
 
     let mut store: Store<()> = Store::new(&engine, ());
-    let core_instance = linker.instantiate_async(&mut store, &pb_core).await?;
+    let core_instance = linker.instantiate(&mut store, &pb_core)?;
+
+    linker.root()
+    // for (name, kind) in pb_core.component_type().exports(&engine) {
+    //     match kind {
+    //         ComponentItem::ComponentInstance(inst) => {
+    //             inst.exports(&engine)
+    //         }
+    //         ComponentItem::ComponentFunc()
+    //     }
+
+    //     println!("{name}: {kind:?}");
+    // }
+
+    let std_instance = linker.instantiate(&mut store, &pb_std)?;
+
+    // let resources = pb_std.resources_required();
+    // println!("{resources:?}");
 
     // let component = core_instance.get_export(&mut store, None, "pb:core/logging@0.1.0");
     // println!("{component:?}");
 
-    let store: Store<()> = Store::new(&engine, ());
-    let std_instance = linker.instantiate(store, &pb_std)?;
+    // let store: Store<()> = Store::new(&engine, ());
 
     /*
     // Create a `Linker` which will be later used to instantiate this module.
@@ -81,6 +61,23 @@ async fn main() -> Result<()> {
     // And finally we can call the wasm!
     hello.call(&mut store, ())?;
     */
+
+    Ok(())
+}
+
+fn populate_linker<T>(
+    engine: &Engine,
+    linker: &mut component::LinkerInstance<'_, T>,
+    store: &mut Store<T>,
+    name: &str,
+    item: ComponentItem,
+) -> Result<(), anyhow::Error> {
+    match item {
+        ComponentItem::ComponentInstance(inst) => {
+            let instance = linker.instance(name)?;
+            
+        }
+    }
 
     Ok(())
 }

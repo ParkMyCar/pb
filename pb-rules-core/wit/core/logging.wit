@@ -23,4 +23,6 @@ interface logging {
 
     /// Function to log an event.
     event: func(level: level, message: string, location: location, fields: list<field>);
+
+    add: func(a: u32, b: u32) -> u32;
 }

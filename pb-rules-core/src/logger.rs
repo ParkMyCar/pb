@@ -25,6 +25,10 @@ impl exports::pb::core::logging::Guest for Logger {
             WitLevel::Error => tracing::error!("{message}"),
         }
     }
+
+    fn add(a: u32, b: u32) -> u32 {
+        a + b
+    }
 }
 
 export!(Logger);

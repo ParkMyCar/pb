@@ -13,7 +13,6 @@ anyhow = "1"
 blake3 = "1"
 pb-filesystem = { path = "../pb-filesystem" }
 wasmtime = { version = "32", features = [
-    "async",
     "runtime",
     "cranelift",
     "component-model",
