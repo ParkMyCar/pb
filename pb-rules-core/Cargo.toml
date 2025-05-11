@@ -6,9 +6,11 @@ authors.workspace = true
 license.workspace = true
 include.workspace = true
 
-[lib]
-crate-type = ["cdylib"]
-
 [dependencies]
 tracing = "0.1"
 wit-bindgen = "0.41.0"
+wasmtime = { version = "32", features = [
+    "runtime",
+    "cranelift",
+    "component-model",
+] }

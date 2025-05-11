@@ -1,9 +1,0 @@
-package pb:core@0.1.0;
-
-world logger {
-    export logging;
-}
-
-world filesystem {
-    export read-filesystem;
-}

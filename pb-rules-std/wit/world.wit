@@ -1,6 +1,0 @@
-package pb:target@0.1.0;
-
-world target-resolver {
-    export resolver;
-    export types;
-}

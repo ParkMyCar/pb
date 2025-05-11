@@ -12,6 +12,7 @@ license.workspace = true
 anyhow = "1"
 blake3 = "1"
 pb-filesystem = { path = "../pb-filesystem" }
+pb-rules-core = { path = "../pb-rules-core" }
 wasmtime = { version = "32", features = [
     "runtime",
     "cranelift",
