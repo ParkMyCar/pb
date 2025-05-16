@@ -1,6 +1,7 @@
-use wasmtime::component::bindgen;
+use super::wit;
 
-bindgen!({ path: "pb-wit/wit" });
+#[derive(Default)]
+pub struct FileHandle;
 
 #[derive(Default)]
 pub struct FileNamespace;
@@ -11,32 +12,32 @@ impl FileNamespace {
         get: impl Fn(&mut T) -> &mut U + Send + Sync + Copy + 'static,
     ) -> wasmtime::Result<()>
     where
-        U: pb::rules::read_filesystem::Host,
+        U: wit::pb::rules::read_filesystem::Host,
     {
-        pb::rules::read_filesystem::add_to_linker(linker, get)
+        wit::pb::rules::read_filesystem::add_to_linker(linker, get)
     }
 }
 
-impl pb::rules::read_filesystem::HostFile for FileNamespace {
+impl wit::pb::rules::read_filesystem::HostFile for FileNamespace {
     fn name(
         &mut self,
-        self_: wasmtime::component::Resource<pb::rules::read_filesystem::File>,
+        self_: wasmtime::component::Resource<wit::pb::rules::read_filesystem::File>,
     ) -> wasmtime::component::__internal::String {
         "TODO filename".into()
     }
 
     fn read(
         &mut self,
-        self_: wasmtime::component::Resource<pb::rules::read_filesystem::File>,
+        self_: wasmtime::component::Resource<wit::pb::rules::read_filesystem::File>,
     ) -> wasmtime::component::__internal::Vec<u8> {
         vec![42u8; 10].into()
     }
 
     fn drop(
         &mut self,
-        rep: wasmtime::component::Resource<pb::rules::read_filesystem::File>,
+        rep: wasmtime::component::Resource<wit::pb::rules::read_filesystem::File>,
     ) -> wasmtime::Result<()> {
         Ok(())
     }
 }
-impl pb::rules::read_filesystem::Host for FileNamespace {}
+impl wit::pb::rules::read_filesystem::Host for FileNamespace {}

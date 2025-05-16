@@ -1,15 +1,11 @@
 [package]
-name = "pb-lang-rust"
+name = "pb-cli"
 version = "0.1.0"
-edition = "2021"
-
+edition = "2024"
 authors.workspace = true
 license.workspace = true
 include.workspace = true
 
-[lib]
-crate-type = ["cdylib"]
-path = "src/lib.rs"
-name = "fib"
-
 [dependencies]
+clap = { version = "4", features = ["derive"] }
+indicatif = "0.17"
