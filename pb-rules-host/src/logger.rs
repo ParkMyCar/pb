@@ -11,6 +11,6 @@ impl wit::logging::Host for HostState {
         location: wit::logging::Location,
         fields: wasmtime::component::__internal::Vec<wit::logging::Field>,
     ) -> () {
-        println!("{level:?} --> {message}");
+        println!("{level:?} @ {location:?} --> {message} with {fields:?}");
     }
 }

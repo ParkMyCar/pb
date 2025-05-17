@@ -6,6 +6,7 @@ members = [
     "pb-metadata",
     "pb-ore",
     "pb-rules-host",
+    "pb-rules-sdk",
     "pb-types",
 ]
 resolver = "2"

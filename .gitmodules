@@ -1,3 +1,6 @@
 [submodule "pb-rules-host/pb-wit"]
 	path = pb-rules-host/pb-wit
 	url = git@github.com:ParkMyCar/pb-wit.git
+[submodule "pb-rules-sdk/pb-wit"]
+	path = pb-rules-sdk/pb-wit
+	url = https://github.com/ParkMyCar/pb-wit.git
