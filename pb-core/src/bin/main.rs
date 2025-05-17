@@ -1,17 +1,18 @@
 use anyhow::Result;
-use pb_rules_core::HostStuff;
+use pb_rules_host::HostState;
 use wasmtime::*;
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     // Modules can be compiled through either the text or binary format
     let mut config = Config::new();
     config.wasm_component_model(true).wasm_multi_memory(true);
     let engine = Engine::new(&config)?;
 
     let mut linker = component::Linker::new(&engine);
-    pb_rules_core::HostStuff::add_to_linker(
+    pb_rules_host::HostState::add_to_linker(
         &mut linker,
-        |state: &mut pb_rules_core::HostStuff| state,
+        |state: &mut pb_rules_host::HostState| state,
     )?;
 
     let pb_std =
@@ -21,10 +22,11 @@ fn main() -> Result<()> {
         println!("export: {x:?}");
     }
 
-    let mut store = Store::new(&engine, HostStuff::default());
+    let host_stuff = HostState::default();
+    let mut store = Store::new(&engine, host_stuff);
     // let std_instance = linker.instantiate(&mut store, &pb_std)?;
 
-    let resolver = pb_rules_core::wit::RuleSet::instantiate(&mut store, &pb_std, &linker).unwrap();
+    let resolver = pb_rules_host::wit::RuleSet::instantiate(&mut store, &pb_std, &linker).unwrap();
     let additional_glob = resolver
         .pb_rules_resolver()
         .call_additional_interest_glob(&mut store);
@@ -32,7 +34,7 @@ fn main() -> Result<()> {
 
     let mut resource_table = wasmtime::component::ResourceTable::new();
     let file_handle = resource_table
-        .push(pb_rules_core::filesystem::FileHandle::default())
+        .push(pb_rules_host::filesystem::FileHandle::default())
         .unwrap();
 
     let result = resolver
@@ -41,47 +43,40 @@ fn main() -> Result<()> {
     println!("{result:?}");
 
     let rule_set = resolver.pb_rules_rules().call_rule_set(&mut store).unwrap();
-    for (name, _rule) in rule_set {
-        println!("rule name: {name}");
+    for (name, rule) in rule_set {
+        println!("rule name: {name}, {:?}", rule.ty());
+
+        if name == "http" {
+            let context = store.data_mut().context();
+            let future = resolver
+                .pb_rules_rules()
+                .rule()
+                .call_run(&mut store, rule, &[], context)
+                .expect("failed to run rule");
+
+            let future = futures::future::poll_fn(|cx| {
+                let waker = pb_rules_host::types::HostWaker::new(cx.waker().clone());
+                let waker = store.data_mut().resources.push(waker).unwrap();
+
+                let state = resolver
+                    .pb_rules_rules()
+                    .rule_future()
+                    .call_poll(&mut store, future, waker)
+                    .expect("failed to poll");
+                match state {
+                    pb_rules_host::wit::exports::pb::rules::rules::RulePoll::Pending => {
+                        std::task::Poll::Pending
+                    }
+                    pb_rules_host::wit::exports::pb::rules::rules::RulePoll::Ready(val) => {
+                        std::task::Poll::Ready(val)
+                    }
+                }
+            });
+
+            let result = future.await;
+            println!("{result:?}");
+        }
     }
-
-    // resolver.pb_rules_resolver().call_resolve_target(wasmtime::Resour, arg0)
-
-    // let resolver = std_instance
-    //     .get_export(&mut store, None, "pb:rules/resolver@0.1.0")
-    //     .expect("resolver");
-    // println!("{resolver:?}");
-    // let additional_interest_id = std_instance
-    //     .get_export(&mut store, Some(&resolver), "additional-interest-glob")
-    //     .unwrap();
-    // let additional_interest_func = std_instance
-    //     .get_typed_func::<(), (Option<String>,)>(&mut store, additional_interest_id)
-    //     .unwrap();
-
-    // let result = additional_interest_func.call(&mut store, ());
-    // println!("{result:?}");
-
-    // let resolve_target_id = std_instance
-    //     .get_export(&mut store, Some(&resolver), "resolve-target")
-    //     .unwrap();
-    // let resolve_target_func = std_instance
-    //     .get_func(&mut store, resolve_target_id)
-    //     .unwrap();
-    // println!("{:?}", resolve_target_func.params(&mut store));
-    // println!("{:?}", resolve_target_func.results(&mut store));
-
-    // let resolve_target_func =
-    //     std_instance
-    //         .get_typed_func::<(
-    //             wasmtime::component::Resource<
-    //                 pb_rules_core::wit::pb::rules::read_filesystem::File,
-    //             >,
-    //         ), (Result<Vec<pb_rules_core::wit::pb::rules::types::Target>, String>,)>(
-    //             &mut store,
-    //             resolve_target_id,
-    //         )
-    //         .unwrap();
-    // println!("{resolve_target_id:?}");
 
     Ok(())
 }

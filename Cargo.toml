@@ -5,7 +5,7 @@ members = [
     "pb-filesystem",
     "pb-metadata",
     "pb-ore",
-    "pb-rules-core",
+    "pb-rules-host",
     "pb-types",
 ]
 resolver = "2"
