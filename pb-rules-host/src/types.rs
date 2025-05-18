@@ -30,7 +30,6 @@ impl wit::types::HostWaker for HostState {
         &mut self,
         self_: wasmtime::component::Resource<wit::types::Waker>,
     ) -> wasmtime::component::Resource<wit::types::Waker> {
-        println!("cloning waker");
         let waker = self.resources.get(&self_).expect("waker doesn't exist");
         self.resources.push(waker.clone()).expect("out of space?")
     }

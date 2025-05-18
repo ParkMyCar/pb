@@ -11,5 +11,6 @@ pub mod rules;
 
 wit_bindgen::generate!({
     world: "rule-set",
-    path: "pb-wit/wit"
+    path: "pb-wit/wit",
+    pub_export_macro: true,
 });
