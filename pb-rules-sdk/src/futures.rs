@@ -9,6 +9,10 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{RawWaker, RawWakerVTable};
 
+pub trait FutureCompat2<T> {
+    fn compat(self) -> BoxFuture<'static, T>;
+}
+
 /// Rule implementations (i.e. WASM Guest functions) are provided a "waker"
 /// that we define in WIT. This type adapts a regular Rust future to one that
 /// can be polled by the WASM host.
@@ -34,11 +38,11 @@ impl<T: 'static> GuestFutureAdapter<T> {
 }
 
 pub struct ByteStreamWrapper {
-    inner: crate::pb::rules::http::BodyStream,
+    inner: crate::pb::rules::types::BytesStream,
 }
 
 impl ByteStreamWrapper {
-    pub fn new(inner: crate::pb::rules::http::BodyStream) -> Self {
+    pub fn new(inner: crate::pb::rules::types::BytesStream) -> Self {
         ByteStreamWrapper { inner }
     }
 }
@@ -57,8 +61,8 @@ impl Stream for ByteStreamWrapper {
             let waker = waker.clone();
 
             match self.as_ref().inner.poll_next(waker) {
-                crate::pb::rules::http::BodyPoll::Pending => std::task::Poll::Pending,
-                crate::pb::rules::http::BodyPoll::Ready(val) => std::task::Poll::Ready(val),
+                crate::pb::rules::types::BytesPoll::Pending => std::task::Poll::Pending,
+                crate::pb::rules::types::BytesPoll::Ready(val) => std::task::Poll::Ready(val),
             }
         })
     }
@@ -84,18 +88,7 @@ impl WakerAdapter2 {
 
     pub fn waker(self) -> std::task::Waker {
         let waker = Arc::into_raw(self.inner) as *const ();
-
-        let location = super::pb::rules::logging::Location {
-            file_path: None,
-            line: None,
-        };
-        super::pb::rules::logging::event(
-            super::pb::rules::logging::Level::Info,
-            &format!("{:?}", waker),
-            &location,
-            &[],
-        );
-
+        tracing::debug!(?waker, "pointer to waker");
         unsafe { std::task::Waker::new(waker, &ADAPTER_WAKER_VTABLE) }
     }
 }

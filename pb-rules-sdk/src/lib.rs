@@ -5,6 +5,7 @@
 //! provides idomatic Rust wrappers around this interface.
 
 pub mod futures;
+pub mod http;
 pub mod logging;
 pub mod resolver;
 pub mod rules;

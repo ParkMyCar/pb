@@ -17,11 +17,12 @@ pub mod wit {
         path: "pb-wit/wit",
         with: {
             "pb:rules/read-filesystem@0.1.0/file": crate::filesystem::FileHandle,
+            "pb:rules/types@0.1.0/bytes-stream": crate::types::BytesStream,
             "pb:rules/types@0.1.0/waker": crate::types::HostWaker,
             "pb:rules/types@0.1.0/provider-dict": crate::types::Provider,
             "pb:rules/http@0.1.0/client": crate::http::Client,
             "pb:rules/http@0.1.0/response": crate::http::Response,
-            "pb:rules/http@0.1.0/body-stream": crate::http::ResponseBodyStream,
+            "pb:rules/http@0.1.0/response-future": crate::http::ResponseFuture,
             "pb:rules/context@0.1.0/ctx": crate::context::Context,
             "pb:rules/context@0.1.0/actions": crate::context::Actions,
         }

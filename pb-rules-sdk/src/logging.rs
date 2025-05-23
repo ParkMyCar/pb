@@ -44,7 +44,8 @@ where
             tracing::Level::ERROR => crate::pb::rules::logging::Level::Error,
         };
         let location = crate::pb::rules::logging::Location {
-            file_path: event.metadata().module_path().map(|p| p.to_string()),
+            file_path: event.metadata().file().map(|p| p.to_string()),
+            target: Some(event.metadata().target().to_string()),
             line: event.metadata().line(),
         };
         let mut fields = BTreeMap::default();
