@@ -14,7 +14,7 @@ use pb_ore::iter::LendingIterator;
 use tokio::io::AsyncReadExt;
 
 #[tokio::main]
-async fn main() {
+async fn main2() {
     let result = FilesystemPlatform::file_handle_max();
     println!("{result:?}");
 
@@ -95,10 +95,10 @@ async fn main() {
 }
 
 #[tokio::main]
-async fn main2() {
+async fn main() {
     let filesystem = Filesystem::new_tokio(tokio::runtime::Handle::current(), 100);
 
-    let path = "/Users/parker.timmerman/Development/pt_forks/pb/pb-filesystem/src".to_string();
+    let path = "/Users/parker.timmerman/Development/pt_forks/pb/pb/pb-filesystem/src".to_string();
     let parent = filesystem
         .open(path.to_string())
         .as_directory()
@@ -128,7 +128,7 @@ async fn main2() {
     let total = start.elapsed();
     println!("{total:?}");
 
-    let path = "/Users/parker.timmerman/Development/pt_forks/pb/pb-filesystem/src/filesystem.rs"
+    let path = "/Users/parker.timmerman/Development/pt_forks/pb/pb/pb-filesystem/src/filesystem.rs"
         .to_string();
     let start = Instant::now();
     for _ in 0..100_000 {
@@ -154,7 +154,7 @@ async fn main2() {
     let total = start.elapsed();
     println!("{total:?}");
 
-    let path = "/Users/parker.timmerman/Development/pt_forks/pb/pb-filesystem/src/filesystem.rs"
+    let path = "/Users/parker.timmerman/Development/pt_forks/pb/pb/pb-filesystem/src/filesystem.rs"
         .to_string();
     let start = Instant::now();
     let mut buf = Vec::new();

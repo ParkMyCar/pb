@@ -642,7 +642,13 @@ pub mod internal {
                     Some(Err(e))
                 }
                 // Yield the bytes we just read!
-                Ok(bytes_read) => Some(Ok(&self.block.as_ref()[..bytes_read])),
+                Ok(bytes_read) => {
+                    self.offset = self
+                        .offset
+                        .checked_add(bytes_read)
+                        .expect("read more than usize bytes?");
+                    Some(Ok(&self.block.as_ref()[..bytes_read]))
+                }
             }
         }
     }
