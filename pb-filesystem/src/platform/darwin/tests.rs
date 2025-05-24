@@ -14,7 +14,7 @@ fn smoketest_xattr() {
 
     let xattr_name = DarwinFilename::try_new("com.pb.test".to_string()).unwrap();
     let xattr_value = b"123456789";
-    
+
     // Write the xattr.
     DarwinPlatform::fsetxattr(file, xattr_name.clone(), b"123456789").unwrap();
     // Fsync to ensure the data is flushed to disk.
@@ -25,4 +25,25 @@ fn smoketest_xattr() {
 
     assert_eq!(bytes_read, 9);
     assert_eq!(&buf[..9], &xattr_value[..]);
+}
+
+#[test]
+fn smoketest_getpath() {
+    let temp = tempfile::TempDir::new().unwrap();
+    let path = temp
+        .path()
+        .join("test-getpath")
+        .to_string_lossy()
+        .to_string();
+
+    let path = DarwinPath::try_new(path).unwrap();
+    let file = DarwinPlatform::open(path.clone(), OpenOptions::CREATE).unwrap();
+    let rnd_path = DarwinPlatform::fgetpath(file).unwrap();
+
+    let is_suffix = rnd_path
+        .into_inner()
+        .as_str()
+        .strip_suffix(&path.into_inner())
+        .is_some();
+    assert!(is_suffix);
 }

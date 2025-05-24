@@ -9,6 +9,8 @@
 
 use wasmtime::component::ResourceTable;
 
+use crate::wit::pb::rules::context::WriteClient;
+
 pub mod wit {
     wasmtime::component::bindgen!({
         path: "pb-wit/wit",
@@ -35,9 +37,10 @@ pub mod http;
 pub mod logger;
 pub mod types;
 
-#[derive(Default)]
 pub struct HostState {
     pub(crate) http_client: reqwest::Client,
+    pub(crate) filesystem: pb_filesystem::filesystem::Filesystem,
+
     pub(crate) write_filesystem: crate::filesystem::WriteClient,
 
     /// Resources handed to WASM.
@@ -45,6 +48,17 @@ pub struct HostState {
 }
 
 impl HostState {
+    pub fn new(handle: tokio::runtime::Handle) -> Self {
+        let filesystem = pb_filesystem::filesystem::Filesystem::new_tokio(handle, 128);
+
+        HostState {
+            http_client: reqwest::Client::default(),
+            filesystem,
+            write_filesystem: WriteClient::default(),
+            resources: ResourceTable::new(),
+        }
+    }
+
     pub fn add_to_linker<T, U>(
         linker: &mut wasmtime::component::Linker<T>,
         get: impl Fn(&mut T) -> &mut U + Send + Sync + Copy + 'static,

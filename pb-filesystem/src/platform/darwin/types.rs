@@ -142,6 +142,9 @@ pub(crate) mod flags {
     ///
     /// Only applies for path-based xattr calls.
     pub const XATTR_NOFOLLOW_ANY: c_int = 0x0040;
+
+    /// Return the full path of the file descriptor.
+    pub const F_GETPATH: c_int = 50;
 }
 
 pub(crate) mod mode {
@@ -179,6 +182,9 @@ pub(crate) mod mode {
 }
 
 pub(crate) mod constants {
+    /// Maximum length of a path, in characters(?);
+    pub const MAXPATHLEN: usize = 1024;
+
     /// Maximum length for the name of an xattr (in bytes?).
     pub const XATTR_MAXNAMELEN: usize = 127;
 

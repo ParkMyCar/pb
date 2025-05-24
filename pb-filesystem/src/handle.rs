@@ -84,6 +84,17 @@ impl<A> Handle<A> {
         Ok(())
     }
 
+    /// Set the specified xattr on the file.
+    pub async fn setxattr(&self, name: String, data: Vec<u8>) -> Result<(), crate::Error> {
+        let inner = self.to_inner();
+        let name = PlatformFilenameType::try_new(name)?;
+        let () = self
+            .worker
+            .run(move || FilesystemPlatform::fsetxattr(inner, name, &data[..]))
+            .await?;
+        Ok(())
+    }
+
     /// Close the filesystem handle, releasing its resources.
     pub async fn close(mut self) -> Result<(), crate::Error> {
         let inner = self

@@ -58,12 +58,22 @@ pub trait Platform {
     fn read(handle: Self::Handle, buf: &mut [u8], offset: usize) -> Result<usize, Error>;
     fn write(handle: Self::Handle, data: &[u8], offset: usize) -> Result<usize, Error>;
 
+    fn rename(from: Self::Path, to: Self::Path) -> Result<(), Error>;
+    fn renameat(
+        from_handle: Self::Handle,
+        from_filename: Self::Filename,
+        to_handle: Self::Handle,
+        to_filename: Self::Filename,
+    ) -> Result<(), Error>;
+
     fn fsetxattr(handle: Self::Handle, name: Self::Filename, data: &[u8]) -> Result<(), Error>;
     fn fgetxattr(
         handle: Self::Handle,
         name: Self::Filename,
         buf: &mut [u8],
     ) -> Result<usize, Error>;
+
+    fn fgetpath(handle: Self::Handle) -> Result<Self::Path, Error>;
 
     fn file_handle_max() -> Result<usize, Error>;
 }

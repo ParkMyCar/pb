@@ -37,6 +37,16 @@ unsafe extern "C" {
         offset: i64,
     ) -> isize;
 
+    /// Rename the link at `old` to `new`.
+    pub unsafe fn rename(old: *const c_char, new: *const c_char) -> c_int;
+    /// Rename the link at `old` relative to `oldfd`, to `new` relative to `newfd`.
+    pub unsafe fn renameat(
+        oldfd: file_descriptor,
+        old: *const c_char,
+        newfd: file_descriptor,
+        new: *const c_char,
+    ) -> c_int;
+
     /// Get an extended attribute value.
     pub unsafe fn fgetxattr(
         fildes: file_descriptor,
@@ -84,7 +94,7 @@ unsafe extern "C" {
     /// made durable see [`fcntl`].
     pub unsafe fn fsync(fildes: file_descriptor) -> c_int;
     /// File control.
-    pub unsafe fn fcntl(fildes: file_descriptor, cmd: c_int) -> c_int;
+    pub unsafe fn fcntl(fildes: file_descriptor, cmd: c_int, ...) -> c_int;
     /// Duplicate a file descriptor.
     pub unsafe fn dup(fildes: file_descriptor) -> file_descriptor;
 

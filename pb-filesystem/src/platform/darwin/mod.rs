@@ -1,11 +1,11 @@
 use pb_ore::cast::CastFrom;
 use pb_types::Timespec;
-use std::ffi::{c_uint, CString};
+use std::ffi::{c_uint, CStr, CString};
 
 use crate::path::PbFilename;
 use crate::platform::darwin::path::DarwinFilename;
 use crate::platform::darwin::types::{rlimit, DarwinDirStream, DarwinHandle};
-use crate::platform::{OpenOptions, Platform};
+use crate::platform::{OpenOptions, Platform, PlatformPath};
 use crate::{DirectoryEntry, FileStat, FileType};
 
 mod path;
@@ -221,6 +221,36 @@ impl Platform for DarwinPlatform {
         }
     }
 
+    fn rename(from: Self::Path, to: Self::Path) -> Result<(), crate::Error> {
+        let from = CString::from(from);
+        let to = CString::from(to);
+
+        let result = unsafe { syscalls::rename(from.as_ptr(), to.as_ptr()) };
+        check_result(result)?;
+        Ok(())
+    }
+
+    fn renameat(
+        from_handle: Self::Handle,
+        from_filename: Self::Filename,
+        to_handle: Self::Handle,
+        to_filename: Self::Filename,
+    ) -> Result<(), crate::Error> {
+        let from = CString::from(from_filename);
+        let to = CString::from(to_filename);
+
+        let result = unsafe {
+            syscalls::renameat(
+                from_handle.into_raw(),
+                from.as_ptr(),
+                to_handle.into_raw(),
+                to.as_ptr(),
+            )
+        };
+        check_result(result)?;
+        Ok(())
+    }
+
     fn fsetxattr(
         handle: Self::Handle,
         name: Self::Filename,
@@ -291,6 +321,21 @@ impl Platform for DarwinPlatform {
         let bytes_read = check_result(result.try_into().expect("TODO"))?;
 
         Ok(bytes_read.try_into().expect("known positive"))
+    }
+
+    fn fgetpath(handle: Self::Handle) -> Result<Self::Path, crate::Error> {
+        let buffer = vec![0u8; types::constants::MAXPATHLEN * 4];
+        let result =
+            unsafe { syscalls::fcntl(handle.into_raw(), types::flags::F_GETPATH, buffer.as_ptr()) };
+        check_result(result)?;
+
+        let path = CStr::from_bytes_until_nul(&buffer[..])
+            .expect("TODO")
+            .to_string_lossy()
+            .to_string();
+        let path = <Self::Path as PlatformPath>::try_new(path).expect("TODO");
+
+        Ok(path)
     }
 
     fn file_handle_max() -> Result<usize, crate::Error> {

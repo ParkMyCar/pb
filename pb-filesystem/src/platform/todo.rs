@@ -57,6 +57,19 @@ impl Platform for TodoPlatform {
         todo!("write")
     }
 
+    fn rename(_from: Self::Path, _to: Self::Path) -> Result<(), crate::Error> {
+        todo!("rename")
+    }
+
+    fn renameat(
+        _from_handle: Self::Handle,
+        _from_filename: Self::Filename,
+        _to_handle: Self::Handle,
+        _to_filename: Self::Filename,
+    ) -> Result<(), crate::Error> {
+        todo!("renameat")
+    }
+
     fn fsetxattr(
         _handle: Self::Handle,
         _name: Self::Filename,
@@ -70,6 +83,10 @@ impl Platform for TodoPlatform {
         _buf: &mut [u8],
     ) -> Result<usize, crate::Error> {
         todo!("fgetxattr")
+    }
+
+    fn fgetpath(_handle: Self::Handle) -> Result<Self::Path, crate::Error> {
+        todo!("fgetpath")
     }
 
     fn file_handle_max() -> Result<usize, crate::Error> {

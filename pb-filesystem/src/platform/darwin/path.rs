@@ -18,9 +18,15 @@ use crate::platform::{PlatformFilename, PlatformPath};
 ///   converts UTF-8 to UTF-32, and finally hashes this representation.
 /// * Based on Unicode 9.0
 ///
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DarwinPath {
     inner: String,
+}
+
+impl DarwinPath {
+    pub(crate) fn into_inner(self) -> String {
+        self.inner
+    }
 }
 
 impl PlatformPath for DarwinPath {

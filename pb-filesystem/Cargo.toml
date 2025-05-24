@@ -11,6 +11,7 @@ async-stream = "0.3"
 bitflags = "2"
 blake3 = "1"
 cfg-if = "1"
+derivative = "2"
 futures = "0.3"
 pb-ore = { path = "../pb-ore" }
 pb-types = { path = "../pb-types" }
@@ -25,6 +26,7 @@ tokio = { version = "1", features = [
     "sync",
 ], default-features = false }
 tracing = "0.1"
+uuid = { version = "1", features = ["v4"] }
 
 [dev-dependencies]
 tempfile = "3"

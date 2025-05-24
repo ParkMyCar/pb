@@ -19,6 +19,7 @@ use super::FileStat;
 /// The goal of this type is to abstract over platform specific implementations for
 /// filesystem operations, provide automatic cleanup and management of resources, as well
 /// as helpers to attach debug information to filesystem [`Handle`]s.
+#[derive(Clone)]
 pub struct Filesystem {
     /// Pool to spawn blocking work on.
     worker: FilesystemWorker,

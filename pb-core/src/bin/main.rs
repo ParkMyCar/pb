@@ -22,7 +22,7 @@ async fn main() -> Result<()> {
         println!("export: {x:?}");
     }
 
-    let host_stuff = HostState::default();
+    let host_stuff = HostState::new(tokio::runtime::Handle::current());
     let mut store = Store::new(&engine, host_stuff);
     // let std_instance = linker.instantiate(&mut store, &pb_std)?;
 
