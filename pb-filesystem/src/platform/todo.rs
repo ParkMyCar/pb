@@ -41,6 +41,13 @@ impl Platform for TodoPlatform {
         todo!("fstat")
     }
 
+    fn fstatat(
+        _handle: Self::Handle,
+        _filename: Self::Filename,
+    ) -> Result<crate::FileStat, crate::Error> {
+        todo!("fstatat")
+    }
+
     fn fsync(_handle: Self::Handle) -> Result<(), crate::Error> {
         todo!("fsync")
     }

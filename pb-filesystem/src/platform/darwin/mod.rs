@@ -17,6 +17,9 @@ mod tests;
 
 pub use path::DarwinPath;
 
+/// Filenames that we ignore when listing a directory.
+static LISTDIR_IGNORED_NAMES: &[&str] = &[".", ".."];
+
 pub struct DarwinPlatform;
 
 fn check_result(val: types::c_int) -> Result<types::c_int, crate::Error> {
@@ -159,6 +162,24 @@ impl Platform for DarwinPlatform {
         Ok(metadata)
     }
 
+    fn fstatat(handle: Self::Handle, filename: Self::Filename) -> Result<FileStat, crate::Error> {
+        let mut raw_stat = types::stat::default();
+        let filename = CString::from(filename);
+
+        let result = unsafe {
+            syscalls::fstatat(
+                handle.into_raw(),
+                filename.as_ptr(),
+                &mut raw_stat as *mut _,
+                types::flags::AT_SYMLINK_NOFOLLOW,
+            )
+        };
+        check_result(result)?;
+
+        let metadata = FileStat::try_from(raw_stat)?;
+        Ok(metadata)
+    }
+
     fn fsync(handle: Self::Handle) -> Result<(), crate::Error> {
         let result = unsafe { syscalls::fsync(handle.into_raw()) };
         check_result(result)?;
@@ -182,8 +203,9 @@ impl Platform for DarwinPlatform {
 
         while !dirent.is_null() {
             let entry = DirectoryEntry::try_from(unsafe { *dirent })?;
-            entries.push(entry);
-
+            if !LISTDIR_IGNORED_NAMES.contains(&&*entry.name.inner) {
+                entries.push(entry);
+            }
             dirent = unsafe { syscalls::readdir(dir_stream) };
         }
 

@@ -38,8 +38,6 @@ async fn smoketest_writing() {
 #[tokio::test]
 async fn smoketest_mkdir() {
     let mut temp = tempfile::TempDir::new().unwrap();
-    temp.disable_cleanup(true);
-    println!("{:?}", temp.path());
     let path = temp.path().join("mydir").to_string_lossy().to_string();
 
     let filesystem = Filesystem::new_test();
@@ -72,4 +70,35 @@ async fn smoketest_mkdir() {
         .unwrap();
 
     assert_eq!(content, rnd_content);
+}
+
+#[tokio::test]
+async fn smoketest_tree() {
+    let mut temp = tempfile::TempDir::new().unwrap();
+    temp.disable_cleanup(true);
+    println!("{:?}", temp.path());
+    let path = temp.path().join("tree_1").to_string_lossy().to_string();
+
+    let filesystem = Filesystem::new_test();
+    let handle = filesystem
+        .open(path)
+        .as_directory()
+        .with_create()
+        .await
+        .unwrap();
+    let _ = handle
+        .openat("test-file.txt".to_string())
+        .as_file()
+        .with_create()
+        .await
+        .unwrap();
+    let _ = handle
+        .openat("nested_dir".to_string())
+        .as_directory()
+        .with_create()
+        .await
+        .unwrap();
+
+    let tree = handle.tree().await.unwrap();
+    println!("{tree}")
 }

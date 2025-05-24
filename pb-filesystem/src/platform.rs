@@ -50,6 +50,7 @@ pub trait Platform {
 
     fn stat(path: Self::Path) -> Result<FileStat, Error>;
     fn fstat(handle: Self::Handle) -> Result<FileStat, Error>;
+    fn fstatat(handle: Self::Handle, filename: Self::Filename) -> Result<FileStat, Error>;
 
     fn fsync(handle: Self::Handle) -> Result<(), Error>;
 

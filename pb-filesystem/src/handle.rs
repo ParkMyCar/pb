@@ -42,7 +42,7 @@ pub struct FileKind {
 /// Type level marker for a handle to a directory.
 pub struct DirectoryKind {
     /// Global limiter of open file handles.
-    permits: Arc<Semaphore>,
+    pub(crate) permits: Arc<Semaphore>,
 }
 
 /// Opened handle to an object on the filesystem.
@@ -161,6 +161,17 @@ impl Handle<DirectoryKind> {
                 filename,
             },
         )
+    }
+
+    /// Stat the file relative to this directory.
+    pub async fn fstatat(&self, filename: String) -> Result<FileStat, crate::Error> {
+        let inner = self.to_inner();
+        let name = PlatformFilenameType::try_new(filename)?;
+        let stat = self
+            .worker
+            .run(move || FilesystemPlatform::fstatat(inner, name))
+            .await?;
+        Ok(stat)
     }
 }
 
