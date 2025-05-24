@@ -6,19 +6,55 @@ use super::types::{self, c_char, c_int, dir_stream, dirent, file_descriptor};
 
 unsafe extern "C" {
     /// Open the file at `path` with the provided flags.
-    pub unsafe fn open(path: *const c_char, flags: types::c_int, mode: u16) -> c_int;
+    ///
+    /// When creating a file we require an additional `mode` argument.
+    pub unsafe fn open(path: *const c_char, flags: types::c_int, ...) -> c_int;
     /// Open the file at the path relative to the provided file descriptor.
+    ///
+    /// When creating a file we require an additional `mode` argument.
     pub unsafe fn openat(
         fildes: file_descriptor,
         path: *const c_char,
         flags: types::c_int,
-        mode: u16,
+        ...
     ) -> c_int;
     /// Close a file handle.
     pub unsafe fn close(fildes: file_descriptor) -> c_int;
 
+    /// Make a directory at the specified path.
+    pub unsafe fn mkdir(path: *const c_char, mode: u16) -> c_int;
+    /// Make a directory at the specified path relative to the provided file descriptor.
+    pub unsafe fn mkdirat(fildes: file_descriptor, path: *const c_char, mode: u16) -> c_int;
+
     /// Read `nbytes` from the provided file descriptor into `buf`.
-    pub unsafe fn read(fildes: file_descriptor, buf: *mut u8, nbytes: usize) -> isize;
+    pub unsafe fn pread(fildes: file_descriptor, buf: *mut u8, nbytes: usize, offset: i64)
+        -> isize;
+    /// Write `nbytes` to the provided file descriptor.
+    pub unsafe fn pwrite(
+        fildes: file_descriptor,
+        buf: *const u8,
+        nbytes: usize,
+        offset: i64,
+    ) -> isize;
+
+    /// Get an extended attribute value.
+    pub unsafe fn fgetxattr(
+        fildes: file_descriptor,
+        name: *const c_char,
+        value: *const u8,
+        size: types::c_int,
+        position: u32,
+        options: types::c_int,
+    ) -> isize;
+    /// Set an extended attribute value for the provided file descriptor.
+    pub unsafe fn fsetxattr(
+        fildes: file_descriptor,
+        name: *const c_char,
+        value: *const u8,
+        size: types::c_int,
+        position: u32,
+        options: types::c_int,
+    ) -> i32;
 
     /// Returns statistics about the file at `path`.
     pub unsafe fn stat(path: *const c_char, buf: *mut types::stat) -> c_int;

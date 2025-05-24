@@ -154,6 +154,16 @@ impl Handle<DirectoryKind> {
 }
 
 impl Handle<FileKind> {
+    /// Write the provided data to the file.
+    pub async fn write(&mut self, data: Vec<u8>) -> Result<(), crate::Error> {
+        let inner = self.to_inner();
+        let _result = self
+            .worker
+            .run(move || FilesystemPlatform::write(inner, &data[..], 0))
+            .await?;
+        Ok(())
+    }
+
     /// Read the contents of the file.
     pub async fn read_with<'a, R, F>(&self, work: F) -> Result<R, crate::Error>
     where
@@ -169,13 +179,11 @@ impl Handle<FileKind> {
 
         self.worker
             .run(move || {
-                let filestream = FilesystemPlatform::open_filestream(inner)?;
                 let result = BlockPool::BLOCK_POOL.with_borrow_mut(|pool| {
                     let block = pool.get_block(block_size);
-                    let byte_iter = internal::ReadIterator::new(filestream, block);
+                    let byte_iter = internal::ReadIterator::new(inner, block);
                     work(byte_iter)
                 });
-                FilesystemPlatform::close_filestream(filestream)?;
                 result
             })
             .await
@@ -235,7 +243,10 @@ pub struct FileDetails {
 }
 
 #[derive(Debug)]
-pub struct DirectoryDetails;
+pub struct DirectoryDetails {
+    /// Should we make a directory or not.
+    create: bool,
+}
 
 #[derive(Debug)]
 pub enum HandleLocation {
@@ -310,7 +321,7 @@ impl<D> HandleBuilder<D> {
             permits: self.permits,
             diagnostics: self.diagnostics,
             location: self.location,
-            details: DirectoryDetails,
+            details: DirectoryDetails { create: false },
         }
     }
 }
@@ -337,6 +348,14 @@ impl HandleBuilder<FileDetails> {
     /// Truncate the file when opening.
     pub fn with_truncate(mut self) -> Self {
         self.details.flags |= OpenOptions::TRUNCATE;
+        self
+    }
+}
+
+impl HandleBuilder<DirectoryDetails> {
+    /// Create the directory if it doesn't exist.
+    pub fn with_create(mut self) -> Self {
+        self.details.create = true;
         self
     }
 }
@@ -466,6 +485,29 @@ impl IntoFuture for HandleBuilder<DirectoryDetails> {
                 .await
                 .expect("failed to acquire permit");
 
+            // First create the directory.
+            if self.details.create {
+                match &self.location {
+                    HandleLocation::Path(path) => {
+                        let path = PlatformPathType::try_new(path.clone())?;
+                        self.worker
+                            .run(move || FilesystemPlatform::mkdir(path))
+                            .await?;
+                    }
+                    HandleLocation::At {
+                        directory,
+                        filename,
+                    } => {
+                        let directory = directory.clone();
+                        let filename = PlatformFilenameType::try_new(filename.clone())?;
+                        self.worker
+                            .run(move || FilesystemPlatform::mkdirat(directory, filename))
+                            .await?;
+                    }
+                }
+            }
+
+            // Then open a handle to it.
             let options = OpenOptions::DIRECTORY;
             let handle = match self.location {
                 HandleLocation::Path(path) => {
@@ -516,7 +558,7 @@ pub(crate) struct DroppedHandle {
 
 pub mod internal {
     use crate::filesystem::Block;
-    use crate::platform::{FilesystemPlatform, Platform, PlatformFileStreamType};
+    use crate::platform::{FilesystemPlatform, Platform, PlatformHandleType};
     use pb_ore::iter::LendingIterator;
 
     /// A [`LendingIterator`] that reads from a [`Handle`] and returns byte slices.
@@ -524,18 +566,21 @@ pub mod internal {
     /// [`Handle`]: crate::handle::Handle
     pub struct ReadIterator<'a> {
         /// Stream of the file we're reading from.
-        filestream: PlatformFileStreamType,
+        handle: PlatformHandleType,
         /// Re-usable block of memory for I/O.
         block: &'a mut Block,
+        /// Current offset into the file that we're reading from.
+        offset: usize,
         /// Is the iterator complete.
         done: bool,
     }
 
     impl<'a> ReadIterator<'a> {
-        pub fn new(filestream: PlatformFileStreamType, block: &'a mut Block) -> Self {
+        pub fn new(handle: PlatformHandleType, block: &'a mut Block) -> Self {
             ReadIterator {
-                filestream,
+                handle,
                 block,
+                offset: 0,
                 done: false,
             }
         }
@@ -558,11 +603,16 @@ pub mod internal {
             // self.block.clear();
 
             // Read the next chunk.
-            match FilesystemPlatform::read(&mut self.filestream, self.block.as_mut()) {
-                // Done reading!
-                Ok(bytes_read) if bytes_read == 0 => {
+            let block_size = self.block.size();
+            match FilesystemPlatform::read(self.handle.clone(), self.block.as_mut(), self.offset) {
+                // Read less bytes than the size of the buffer, we're done!
+                Ok(bytes_read) if bytes_read < block_size => {
                     self.done = true;
-                    None
+                    self.offset = self
+                        .offset
+                        .checked_add(bytes_read)
+                        .expect("read more than usize bytes?");
+                    Some(Ok(&self.block.as_ref()[..bytes_read]))
                 }
                 // Errored, so stop reading here.
                 Err(e) => {

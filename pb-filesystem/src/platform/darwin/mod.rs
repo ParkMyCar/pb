@@ -1,16 +1,19 @@
 use pb_ore::cast::CastFrom;
 use pb_types::Timespec;
-use std::ffi::CString;
+use std::ffi::{c_uint, CString};
 
 use crate::path::PbFilename;
 use crate::platform::darwin::path::DarwinFilename;
-use crate::platform::darwin::types::{rlimit, DarwinDirStream, DarwinFileStream, DarwinHandle};
+use crate::platform::darwin::types::{rlimit, DarwinDirStream, DarwinHandle};
 use crate::platform::{OpenOptions, Platform};
 use crate::{DirectoryEntry, FileStat, FileType};
 
 mod path;
 mod syscalls;
 mod types;
+
+#[cfg(test)]
+mod tests;
 
 pub use path::DarwinPath;
 
@@ -32,7 +35,6 @@ impl Platform for DarwinPlatform {
 
     type Handle = DarwinHandle;
     type DirStream = DarwinDirStream;
-    type FileStream = DarwinFileStream;
 
     fn open(path: Self::Path, options: OpenOptions) -> Result<Self::Handle, crate::Error> {
         let path = CString::from(path);
@@ -44,9 +46,26 @@ impl Platform for DarwinPlatform {
             flags |= types::flags::O_RDWR;
         } else if options.contains(OpenOptions::DIRECTORY) {
             flags |= types::flags::O_DIRECTORY;
+        } else if options.contains(OpenOptions::CREATE) {
+            flags |= types::flags::O_CREAT;
+            flags |= types::flags::O_RDWR;
+        } else if options.contains(OpenOptions::TRUNCATE) {
+            flags |= types::flags::O_TRUNC;
+            flags |= types::flags::O_RDWR;
         }
 
-        let result = unsafe { syscalls::open(path.into_raw(), flags, 0) };
+        // If we're creating a file make sure it's writeable.
+        let mode = if (flags & types::flags::O_CREAT) > 0 {
+            types::mode::DEFAULT_FILE_MODE as c_uint
+        } else {
+            0
+        };
+
+        let result = if mode != 0 {
+            unsafe { syscalls::open(path.into_raw(), flags, mode) }
+        } else {
+            unsafe { syscalls::open(path.into_raw(), flags) }
+        };
         let fd = check_result(result)?;
         let handle = DarwinHandle::from_raw(fd);
 
@@ -67,9 +86,26 @@ impl Platform for DarwinPlatform {
             flags |= types::flags::O_RDWR;
         } else if options.contains(OpenOptions::DIRECTORY) {
             flags |= types::flags::O_DIRECTORY;
+        } else if options.contains(OpenOptions::CREATE) {
+            flags |= types::flags::O_CREAT;
+            flags |= types::flags::O_RDWR;
+        } else if options.contains(OpenOptions::TRUNCATE) {
+            flags |= types::flags::O_TRUNC;
+            flags |= types::flags::O_RDWR;
         }
 
-        let result = unsafe { syscalls::openat(handle.into_raw(), filename.into_raw(), flags, 0) };
+        // If we're creating a file make sure it's writeable.
+        let mode = if (flags & types::flags::O_CREAT) > 0 {
+            types::mode::DEFAULT_FILE_MODE as c_uint
+        } else {
+            0
+        };
+
+        let result = if mode != 0 {
+            unsafe { syscalls::openat(handle.into_raw(), filename.into_raw(), flags, mode) }
+        } else {
+            unsafe { syscalls::openat(handle.into_raw(), filename.into_raw(), flags) }
+        };
         let fd = check_result(result)?;
         let handle = DarwinHandle::from_raw(fd);
 
@@ -78,6 +114,26 @@ impl Platform for DarwinPlatform {
 
     fn close(handle: Self::Handle) -> Result<(), crate::Error> {
         let result = unsafe { syscalls::close(handle.into_raw()) };
+        check_result(result)?;
+        Ok(())
+    }
+
+    fn mkdir(path: Self::Path) -> Result<(), crate::Error> {
+        let path = CString::from(path);
+        let result = unsafe { syscalls::mkdir(path.into_raw(), types::mode::DEFAULT_DIR_MODE) };
+        check_result(result)?;
+        Ok(())
+    }
+
+    fn mkdirat(handle: Self::Handle, filename: Self::Filename) -> Result<(), crate::Error> {
+        let filename = CString::from(filename);
+        let result = unsafe {
+            syscalls::mkdirat(
+                handle.into_raw(),
+                filename.into_raw(),
+                types::mode::DEFAULT_DIR_MODE,
+            )
+        };
         check_result(result)?;
         Ok(())
     }
@@ -137,32 +193,104 @@ impl Platform for DarwinPlatform {
         Ok(entries)
     }
 
-    fn open_filestream(handle: Self::Handle) -> Result<Self::FileStream, crate::Error> {
-        // Duplicate the handle because as we call `read` the kernel internally advances
-        // a pointer and we want our higher level `Handle`s to be re-usable.
-        let result = unsafe { syscalls::dup(handle.into_raw()) };
-        let dup_handle = check_result(result)?;
-
-        Ok(DarwinFileStream::from_raw(dup_handle))
-    }
-
-    fn close_filestream(stream: Self::FileStream) -> Result<(), crate::Error> {
-        let result = unsafe { syscalls::close(stream.into_raw()) };
-        check_result(result)?;
-        Ok(())
-    }
-
-    fn read(stream: &mut Self::FileStream, buf: &mut [u8]) -> Result<usize, crate::Error> {
+    fn read(handle: Self::Handle, buf: &mut [u8], offset: usize) -> Result<usize, crate::Error> {
         let buf_ptr = buf.as_mut_ptr();
         let buf_len = buf.len();
+        let offset = offset.try_into().expect("TODO");
 
-        let result = unsafe { syscalls::read(stream.into_raw(), buf_ptr, buf_len) };
+        let result = unsafe { syscalls::pread(handle.into_raw(), buf_ptr, buf_len, offset) };
         if result < 0 {
             Err(crate::Error::Unknown("TODO".to_string()))
         } else {
             let bytes_read = result.try_into().expect("checked that we're positive");
             Ok(bytes_read)
         }
+    }
+
+    fn write(handle: Self::Handle, data: &[u8], offset: usize) -> Result<usize, crate::Error> {
+        let data_ptr = data.as_ptr();
+        let data_len = data.len();
+        let offset = offset.try_into().expect("TODO");
+
+        let result = unsafe { syscalls::pwrite(handle.into_raw(), data_ptr, data_len, offset) };
+        if result < 0 {
+            Err(crate::Error::Unknown("TODO".to_string()))
+        } else {
+            let bytes_written = result.try_into().expect("checked that we're positive");
+            Ok(bytes_written)
+        }
+    }
+
+    fn fsetxattr(
+        handle: Self::Handle,
+        name: Self::Filename,
+        data: &[u8],
+    ) -> Result<(), crate::Error> {
+        /// The current man page for fsetxattr specifies that "only the resource fork extended
+        /// attribute makes use of [the position] argument. For all others, position is reserved
+        /// and should be set to zero."
+        const POSITION: u32 = 0;
+
+        let name = CString::from(name);
+        let data_len: i32 = data
+            .len()
+            .try_into()
+            .map_err(|err: std::num::TryFromIntError| crate::Error::Unknown(err.to_string()))?;
+        let data_ptr = data.as_ptr();
+
+        // TODO: expose these options.
+        let options = 0;
+
+        let result = unsafe {
+            syscalls::fsetxattr(
+                handle.into_raw(),
+                name.into_raw(),
+                data_ptr,
+                data_len,
+                POSITION,
+                options,
+            )
+        };
+        check_result(result)?;
+
+        Ok(())
+    }
+
+    fn fgetxattr(
+        handle: Self::Handle,
+        name: Self::Filename,
+        buf: &mut [u8],
+    ) -> Result<usize, crate::Error> {
+        /// The current man page for fgetxattr specifies that "only the resource fork extended
+        /// attribute makes use of [the position] argument. For all others, position is reserved
+        /// and should be set to zero."
+        const POSITION: u32 = 0;
+
+        let name = CString::from(name);
+
+        // Note: If this buffer cannot fit the xattr then we get back error 34 "result too large".
+        let buf_len: i32 = buf
+            .len()
+            .try_into()
+            .map_err(|err: std::num::TryFromIntError| crate::Error::Unknown(err.to_string()))?;
+        let buf_ptr = buf.as_ptr();
+
+        // TODO: expose these options.
+        let options = 0;
+
+        let result = unsafe {
+            syscalls::fgetxattr(
+                handle.into_raw(),
+                name.into_raw(),
+                buf_ptr,
+                buf_len,
+                POSITION,
+                options,
+            )
+        };
+        let bytes_read = check_result(result.try_into().expect("TODO"))?;
+
+        Ok(bytes_read.try_into().expect("known positive"))
     }
 
     fn file_handle_max() -> Result<usize, crate::Error> {

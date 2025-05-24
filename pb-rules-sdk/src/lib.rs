@@ -4,6 +4,7 @@
 //! [`pb-wit`](https://github.com/ParkMyCar/pb-wit) repository. This crate
 //! provides idomatic Rust wrappers around this interface.
 
+pub mod filesystem;
 pub mod futures;
 pub mod http;
 pub mod logging;

@@ -26,12 +26,14 @@ impl crate::wit::pb::rules::context::HostCtx for HostState {
 #[derive(Default)]
 pub struct Actions {
     client: reqwest::Client,
+    write_filesystem: crate::filesystem::WriteClient,
 }
 
 impl Actions {
     fn new(state: &HostState) -> Self {
         Actions {
             client: state.http_client.clone(),
+            write_filesystem: state.write_filesystem.clone(),
         }
     }
 }
@@ -46,6 +48,15 @@ impl wit::context::HostActions for HostState {
         let client = crate::http::Client {
             inner: actions.client.clone(),
         };
+        self.resources.push(client).unwrap()
+    }
+
+    fn write_filesystem(
+        &mut self,
+        self_: wasmtime::component::Resource<Actions>,
+    ) -> wasmtime::component::Resource<wit::context::WriteClient> {
+        let actions = self.resources.get(&self_).unwrap();
+        let client = actions.write_filesystem.clone();
         self.resources.push(client).unwrap()
     }
 

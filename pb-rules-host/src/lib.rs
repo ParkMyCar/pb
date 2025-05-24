@@ -7,9 +7,6 @@
 //!
 //! This crate contains the host implementations for our WIT interfaces.
 
-use std::process::Output;
-
-use futures::Future;
 use wasmtime::component::ResourceTable;
 
 pub mod wit {
@@ -17,7 +14,10 @@ pub mod wit {
         path: "pb-wit/wit",
         with: {
             "pb:rules/read-filesystem@0.1.0/file": crate::filesystem::FileHandle,
+            "pb:rules/write-filesystem@0.1.0/write-client": crate::filesystem::WriteClient,
+            "pb:rules/write-filesystem@0.1.0/write-file": crate::filesystem::FileHandle,
             "pb:rules/types@0.1.0/bytes-stream": crate::types::BytesStream,
+            "pb:rules/types@0.1.0/bytes-sink": crate::types::BytesSink,
             "pb:rules/types@0.1.0/waker": crate::types::HostWaker,
             "pb:rules/types@0.1.0/provider-dict": crate::types::Provider,
             "pb:rules/http@0.1.0/client": crate::http::Client,
@@ -38,6 +38,7 @@ pub mod types;
 #[derive(Default)]
 pub struct HostState {
     pub(crate) http_client: reqwest::Client,
+    pub(crate) write_filesystem: crate::filesystem::WriteClient,
 
     /// Resources handed to WASM.
     pub resources: ResourceTable,

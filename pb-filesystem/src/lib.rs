@@ -5,6 +5,9 @@ pub mod handle;
 pub mod path;
 pub mod platform;
 
+#[cfg(test)]
+mod tests;
+
 use path::PbFilename;
 use pb_types::Timespec;
 

@@ -36,7 +36,6 @@ pub trait Platform {
 
     type Handle: Debug + Clone;
     type DirStream: Debug + Clone;
-    type FileStream: Debug + Clone;
 
     fn open(path: Self::Path, options: OpenOptions) -> Result<Self::Handle, Error>;
     fn openat(
@@ -46,6 +45,9 @@ pub trait Platform {
     ) -> Result<Self::Handle, Error>;
     fn close(handle: Self::Handle) -> Result<(), Error>;
 
+    fn mkdir(path: Self::Path) -> Result<(), Error>;
+    fn mkdirat(handle: Self::Handle, filename: Self::Filename) -> Result<(), Error>;
+
     fn stat(path: Self::Path) -> Result<FileStat, Error>;
     fn fstat(handle: Self::Handle) -> Result<FileStat, Error>;
 
@@ -53,9 +55,15 @@ pub trait Platform {
 
     fn listdir(handle: Self::Handle) -> Result<Vec<DirectoryEntry>, Error>;
 
-    fn open_filestream(handle: Self::Handle) -> Result<Self::FileStream, Error>;
-    fn close_filestream(handle: Self::FileStream) -> Result<(), Error>;
-    fn read(stream: &mut Self::FileStream, buf: &mut [u8]) -> Result<usize, Error>;
+    fn read(handle: Self::Handle, buf: &mut [u8], offset: usize) -> Result<usize, Error>;
+    fn write(handle: Self::Handle, data: &[u8], offset: usize) -> Result<usize, Error>;
+
+    fn fsetxattr(handle: Self::Handle, name: Self::Filename, data: &[u8]) -> Result<(), Error>;
+    fn fgetxattr(
+        handle: Self::Handle,
+        name: Self::Filename,
+        buf: &mut [u8],
+    ) -> Result<usize, Error>;
 
     fn file_handle_max() -> Result<usize, Error>;
 }
@@ -74,8 +82,6 @@ pub type PlatformHandleType = <FilesystemPlatform as Platform>::Handle;
 pub type PlatformPathType = <FilesystemPlatform as Platform>::Path;
 /// Type alias for the [`Platform::Filename`] associated type for the current [`FilesystemPlatform`].
 pub type PlatformFilenameType = <FilesystemPlatform as Platform>::Filename;
-/// TODO
-pub type PlatformFileStreamType = <FilesystemPlatform as Platform>::FileStream;
 
 cfg_if::cfg_if! {
     if #[cfg(target_os = "macos")] {

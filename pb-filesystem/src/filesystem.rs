@@ -199,6 +199,10 @@ impl Block {
         Block { inner }
     }
 
+    pub fn size(&self) -> usize {
+        self.inner.len()
+    }
+
     pub fn clear(&mut self) {
         self.inner.clear();
     }

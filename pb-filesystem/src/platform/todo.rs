@@ -11,7 +11,6 @@ impl Platform for TodoPlatform {
 
     type Handle = u64;
     type DirStream = Self::Handle;
-    type FileStream = Self::Handle;
 
     fn open(_path: String, _options: OpenOptions) -> Result<Self::Handle, crate::Error> {
         todo!("open")
@@ -25,6 +24,13 @@ impl Platform for TodoPlatform {
     }
     fn close(_handle: Self::Handle) -> Result<(), crate::Error> {
         todo!("close")
+    }
+
+    fn mkdir(_path: Self::Path) -> Result<(), crate::Error> {
+        todo!("mkdir")
+    }
+    fn mkdirat(_handle: Self::Handle, _filename: Self::Filename) -> Result<(), crate::Error> {
+        todo!("mkdirat")
     }
 
     fn stat(_path: String) -> Result<crate::FileStat, crate::Error> {
@@ -43,16 +49,27 @@ impl Platform for TodoPlatform {
         todo!("listdir")
     }
 
-    fn open_filestream(_handle: Self::Handle) -> Result<Self::FileStream, crate::Error> {
-        todo!("open_filestream")
-    }
-
-    fn close_filestream(_handle: Self::Handle) -> Result<(), crate::Error> {
-        todo!("close_filestream")
-    }
-
-    fn read(_stream: &mut Self::FileStream, _buf: &mut [u8]) -> Result<usize, crate::Error> {
+    fn read(_stream: Self::Handle, _buf: &mut [u8], _offset: usize) -> Result<usize, crate::Error> {
         todo!("read")
+    }
+
+    fn write(_handle: Self::Handle, _data: &[u8], _offset: usize) -> Result<usize, crate::Error> {
+        todo!("write")
+    }
+
+    fn fsetxattr(
+        _handle: Self::Handle,
+        _name: Self::Filename,
+        _data: &[u8],
+    ) -> Result<(), crate::Error> {
+        todo!("fsetxattr")
+    }
+    fn fgetxattr(
+        _handle: Self::Handle,
+        _name: Self::Filename,
+        _buf: &mut [u8],
+    ) -> Result<usize, crate::Error> {
+        todo!("fgetxattr")
     }
 
     fn file_handle_max() -> Result<usize, crate::Error> {
