@@ -3,7 +3,6 @@ members = [
     "pb-cli",
     "pb-core",
     "pb-filesystem",
-    "pb-metadata",
     "pb-ore",
     "pb-rules-host",
     "pb-rules-sdk",

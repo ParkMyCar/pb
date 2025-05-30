@@ -12,13 +12,51 @@ use pb_filesystem::FileType;
 use pb_ore::iter::LendingIterator;
 
 use tokio::io::AsyncReadExt;
+use tracing_subscriber::EnvFilter;
+
+#[tokio::main(flavor = "multi_thread")]
+async fn main() {
+    tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::from_default_env())
+        .init();
+
+    let filesystem = Filesystem::new(4, 1024);
+    let root = filesystem
+        .open("/Users/parker.timmerman/Development".to_string())
+        .as_directory()
+        .await
+        .unwrap();
+
+    let mut ignore_set = globset::GlobSetBuilder::new();
+    ignore_set.add(globset::Glob::new("**/target").unwrap());
+    let ignore_set = ignore_set.build().unwrap();
+
+    let start = Instant::now();
+    let tree = root
+        .tree()
+        .ignore(ignore_set)
+        .with_data(|mut reader| {
+            let mut hasher = xxhash_rust::xxh3::Xxh3Default::new();
+            while let Some(read) = reader.next() {
+                let data = read?;
+                hasher.update(data);
+            }
+            Ok(hasher.digest())
+        })
+        .await
+        .unwrap();
+    let elapsed = start.elapsed();
+    root.close().await.unwrap();
+
+    println!("{elapsed:?}, {}", tree.size());
+}
 
 #[tokio::main]
 async fn main2() {
     let result = FilesystemPlatform::file_handle_max();
     println!("{result:?}");
 
-    let filesystem = Filesystem::new_tokio(tokio::runtime::Handle::current(), 1024);
+    let filesystem = Filesystem::new(4, 1024);
 
     let root = filesystem
         .open("/Users/parker/Development".to_string())
@@ -95,8 +133,8 @@ async fn main2() {
 }
 
 #[tokio::main]
-async fn main() {
-    let filesystem = Filesystem::new_tokio(tokio::runtime::Handle::current(), 100);
+async fn main3() {
+    let filesystem = Filesystem::new(4, 100);
 
     let path = "/Users/parker.timmerman/Development/pt_forks/pb/pb/pb-filesystem/src".to_string();
     let parent = filesystem
@@ -173,7 +211,7 @@ async fn main() {
 
 #[tokio::main]
 async fn main5() {
-    let filesystem = Filesystem::new_tokio(tokio::runtime::Handle::current(), 100);
+    let filesystem = Filesystem::new(4, 100);
 
     let path = "/Users/parker.timmerman/Development/pt_forks/pb/pb-filesystem".to_string();
     let handle = filesystem

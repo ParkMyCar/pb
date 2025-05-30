@@ -6,7 +6,7 @@ use crate::filesystem::Filesystem;
 
 impl Filesystem {
     fn new_test() -> Filesystem {
-        Filesystem::new_tokio(tokio::runtime::Handle::current(), 32)
+        Filesystem::new(2, 32)
     }
 }
 
@@ -37,7 +37,7 @@ async fn smoketest_writing() {
 
 #[tokio::test]
 async fn smoketest_mkdir() {
-    let mut temp = tempfile::TempDir::new().unwrap();
+    let temp = tempfile::TempDir::new().unwrap();
     let path = temp.path().join("mydir").to_string_lossy().to_string();
 
     let filesystem = Filesystem::new_test();

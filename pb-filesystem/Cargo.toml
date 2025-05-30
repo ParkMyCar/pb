@@ -11,8 +11,10 @@ async-stream = "0.3"
 bitflags = "2"
 blake3 = "1"
 cfg-if = "1"
+crossbeam = "0.8"
 derivative = "2"
 futures = "0.3"
+globset = "0.4"
 pb-ore = { path = "../pb-ore" }
 pb-types = { path = "../pb-types" }
 ptree = "0.5"
@@ -27,7 +29,9 @@ tokio = { version = "1", features = [
     "sync",
 ], default-features = false }
 tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 uuid = { version = "1", features = ["v4"] }
+xxhash-rust = { version = "0.8", features = ["xxh3", "xxh64"] }
 
 [dev-dependencies]
 tempfile = "3"

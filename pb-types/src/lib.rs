@@ -13,12 +13,8 @@ pub struct FileMetadata {
     inode: u64,
     /// File mode/permissions.
     mode: u32,
-    /// User ID of the file owner.
-    user: u32,
-    /// Group ID of the file owner.
-    group: u32,
     /// Fingerprint of the file contents, generally a hash.
-    fingerprint: [u8; 32],
+    fingerprint: [u8; 8],
 }
 
 /// Time info returned from a `stat` call.

@@ -1,5 +1,4 @@
-use futures::channel::mpsc::{UnboundedReceiver, UnboundedSender};
-use futures::{FutureExt, StreamExt};
+use futures::FutureExt;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt;
@@ -26,14 +25,14 @@ pub struct Filesystem {
     /// The number of file system handles that are allowed to be open at once.
     permits: Arc<Semaphore>,
     /// Queue of handles that have been dropped but not yet closed.
-    drops_tx: UnboundedSender<DroppedHandle>,
+    drops_tx: crossbeam::channel::Sender<DroppedHandle>,
 }
 
 impl Filesystem {
-    pub fn new_tokio(worker: tokio::runtime::Handle, max_handles: usize) -> Self {
-        let (drops_tx, drops_rx) = futures::channel::mpsc::unbounded();
+    pub fn new(num_threads: usize, max_handles: usize) -> Self {
+        let (drops_tx, drops_rx) = crossbeam::channel::unbounded();
         Filesystem {
-            worker: FilesystemWorker::new_tokio(worker, drops_rx),
+            worker: FilesystemWorker::new(num_threads, drops_rx),
             permits: Arc::new(Semaphore::new(max_handles)),
             drops_tx,
         }
@@ -79,36 +78,52 @@ pub struct FilesystemWorker {
 }
 
 impl FilesystemWorker {
-    fn new_tokio(
-        runtime: tokio::runtime::Handle,
-        mut drops_rx: UnboundedReceiver<DroppedHandle>,
-    ) -> Self {
-        let task = runtime.spawn(async move {
-            while let Some(drop_handle) = drops_rx.next().await {
-                let DroppedHandle {
-                    inner,
-                    permit,
-                    diagnostics,
-                } = drop_handle;
+    fn new(size: usize, drops_rx: crossbeam::channel::Receiver<DroppedHandle>) -> Self {
+        let thread_pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(size)
+            .build()
+            .expect("failed to create threadpool");
 
-                // Close the handle.
-                let result = FilesystemPlatform::close(inner);
-                // Drop our permit.
-                drop(permit);
+        thread_pool.spawn(move || {
+            let mut handles = Vec::new();
 
-                match result {
-                    Ok(()) => tracing::info!("async closed handle for: {diagnostics:?}"),
-                    Err(err) => tracing::warn!(
-                        "failed to async close handle for: {diagnostics:?}, err: {err}"
-                    ),
+            loop {
+                // Block until there is a dropped handle.
+                match drops_rx.recv() {
+                    Ok(dropped_handle) => handles.push(dropped_handle),
+                    Err(notice) => {
+                        tracing::info!(?notice, "drops sender went away, shutting down");
+                        return;
+                    }
+                }
+
+                // Collect all of the currently queued handles, if any.
+                handles.extend(drops_rx.try_iter());
+
+                // Drop all of the handles.
+                for dropped_handle in handles.drain(..) {
+                    let DroppedHandle {
+                        inner,
+                        permit,
+                        diagnostics,
+                    } = dropped_handle;
+
+                    // Close the handle.
+                    let result = FilesystemPlatform::close(inner);
+                    // Drop our permit.
+                    drop(permit);
+
+                    match result {
+                        Ok(()) => tracing::info!("async closed handle for: {diagnostics:?}"),
+                        Err(err) => tracing::warn!(
+                            "failed to async close handle for: {diagnostics:?}, err: {err}"
+                        ),
+                    }
                 }
             }
         });
-        let pool = WorkerPool::Tokio {
-            runtime,
-            _drop_task: task,
-        };
 
+        let pool = WorkerPool::Rayon { pool: thread_pool };
         FilesystemWorker {
             pool: Arc::new(pool),
         }
@@ -124,12 +139,12 @@ impl FilesystemWorker {
     }
 
     /// TODO document why this exists, and why it's nice to be able to name our return type.
-    pub fn run_typed<T, W>(&self, work: W) -> futures::channel::oneshot::Receiver<T>
+    pub fn run_typed<T, W>(&self, work: W) -> tokio::sync::oneshot::Receiver<T>
     where
         T: Send + 'static,
         W: FnOnce() -> T + Send + 'static,
     {
-        let (tx, rx) = futures::channel::oneshot::channel();
+        let (tx, rx) = tokio::sync::oneshot::channel();
         match &*self.pool {
             WorkerPool::Tokio { runtime, .. } => {
                 runtime.spawn_blocking(|| {
@@ -153,6 +168,12 @@ impl FilesystemWorker {
 impl fmt::Debug for FilesystemWorker {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("FilesystemWorker").finish()
+    }
+}
+
+impl Drop for FilesystemWorker {
+    fn drop(&mut self) {
+        tracing::info!("shutting fown filesystem worker");
     }
 }
 

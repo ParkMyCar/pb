@@ -1,6 +1,5 @@
 //! Module that defines a strongly typed filesystem handle.
 
-use futures::channel::mpsc::UnboundedSender;
 use futures::future::{Future, TryFutureExt};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 
@@ -36,7 +35,7 @@ pub struct UnknownKind;
 /// Type level marker for a handle to a file.
 pub struct FileKind {
     /// Optimal blocksize for I/O.
-    optimal_blocksize: Option<usize>,
+    pub(crate) optimal_blocksize: Option<usize>,
 }
 
 /// Type level marker for a handle to a directory.
@@ -55,7 +54,7 @@ pub struct Handle<Kind = UnknownKind> {
     /// Worker that runs I/O operations.
     pub(crate) worker: FilesystemWorker,
     /// Sending side of a queue to close dropped [`Handle`]s.
-    pub(crate) drops_tx: UnboundedSender<DroppedHandle>,
+    pub(crate) drops_tx: crossbeam::channel::Sender<DroppedHandle>,
     /// Reason this [`Handle`] was opened.
     pub(crate) diagnostics: Option<Cow<'static, str>>,
 
@@ -197,7 +196,11 @@ impl Handle<FileKind> {
         //
         // TODO: Consider using a multiple of the block size if the file requires more
         // than 1 block to read.
-        let block_size = self.kind.optimal_blocksize.unwrap_or(4096);
+        let block_size = self
+            .kind
+            .optimal_blocksize
+            .unwrap_or(4096)
+            .saturating_mul(8);
 
         self.worker
             .run(move || {
@@ -226,7 +229,7 @@ impl<K> Drop for Handle<K> {
                     diagnostics,
                 };
                 self.drops_tx
-                    .unbounded_send(dropped_handle)
+                    .send(dropped_handle)
                     .expect("filesystem shutting down");
             }
             (None, None) => (),
@@ -286,7 +289,7 @@ pub struct HandleBuilder<Details = UnknownDetails> {
     /// Worker that runs I/O operations.
     pub(crate) worker: FilesystemWorker,
     /// Sending side of a queue to close dropped [`Handle`]s.
-    pub(crate) drops_tx: UnboundedSender<DroppedHandle>,
+    pub(crate) drops_tx: crossbeam::channel::Sender<DroppedHandle>,
     /// Global sempahore limiting all open filesystem handles.
     pub(crate) permits: Arc<Semaphore>,
     /// Reason this [`Handle`] was opened.
@@ -301,7 +304,7 @@ pub struct HandleBuilder<Details = UnknownDetails> {
 impl HandleBuilder<UnknownDetails> {
     pub(crate) fn new(
         worker: FilesystemWorker,
-        drops_tx: UnboundedSender<DroppedHandle>,
+        drops_tx: crossbeam::channel::Sender<DroppedHandle>,
         permits: Arc<Semaphore>,
         location: HandleLocation,
     ) -> HandleBuilder<UnknownDetails> {
