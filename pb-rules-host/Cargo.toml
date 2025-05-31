@@ -7,6 +7,7 @@ license.workspace = true
 include.workspace = true
 
 [dependencies]
+ansi_term = "0.12"
 async-stream = "0.3"
 bytes = "1"
 futures = "0.3"

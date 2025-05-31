@@ -51,8 +51,11 @@ pub struct HostState {
     pub(crate) scratch_space: pb_filesystem::locations::scratch::ScratchDirectory,
     /// Directory for externally downloaded repositories.
     pub(crate) repositories: pb_filesystem::locations::repositories::RepositoryDirectory,
-
+    /// TODO: Is this needed?
     pub(crate) write_filesystem: crate::filesystem::WriteClient,
+
+    /// Format for logs emitted from WebAssembly.
+    pub(crate) logging_format: crate::logger::LoggingFormat,
 
     /// Resources handed to WASM.
     pub resources: ResourceTable,
@@ -61,6 +64,7 @@ pub struct HostState {
 impl HostState {
     pub async fn new() -> Self {
         let filesystem = pb_filesystem::filesystem::Filesystem::new(4, 1024);
+        let logging_format = crate::logger::LoggingFormat::from_env();
 
         let root = "/Users/parker/.pb";
         let root = PbPath::new(root.to_string()).unwrap();
@@ -83,6 +87,7 @@ impl HostState {
             scratch_space,
             repositories,
             write_filesystem: WriteClient::default(),
+            logging_format,
             resources: ResourceTable::new(),
         }
     }
