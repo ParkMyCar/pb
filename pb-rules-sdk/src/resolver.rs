@@ -3,23 +3,46 @@
 use crate::exports;
 
 pub trait Resolver {
+    type Iterator: TargetDiffIterator;
+
+    fn new() -> Self;
+
     fn additional_interest_glob() -> Option<String>;
-    fn resolve_target(
-        file: Vec<u8>,
-    ) -> Result<Vec<crate::exports::pb::rules::resolver::Target>, String>;
+
+    fn process_update(&self, update: exports::pb::rules::target_resolver::ManifestUpdate);
+
+    fn target_diffs(&self) -> Self::Iterator;
 }
 
-impl<R: Resolver + 'static> exports::pb::rules::resolver::Guest for R {
-    fn additional_interest_glob() -> Option<crate::_rt::String> {
-        crate::logging::with_logging(|| <R as Resolver>::additional_interest_glob())
+impl<R: Resolver + 'static> exports::pb::rules::target_resolver::GuestResolver for R {
+    fn new() -> Self {
+        todo!()
     }
 
-    fn resolve_target(
-        file: exports::pb::rules::resolver::File,
-    ) -> Result<crate::_rt::Vec<exports::pb::rules::resolver::Target>, crate::_rt::String> {
-        crate::logging::with_logging(|| {
-            let contents = vec![];
-            <R as Resolver>::resolve_target(contents)
-        })
+    fn additional_interest_glob() -> Option<crate::_rt::String> {
+        todo!()
     }
+
+    fn process_update(&self, update: exports::pb::rules::target_resolver::ManifestUpdate) -> () {}
+
+    fn target_diffs(&self) -> exports::pb::rules::target_resolver::TargetDiffIterator {
+        todo!()
+    }
+}
+
+pub trait TargetDiffIterator {
+    fn next(&self) -> Option<exports::pb::rules::target_resolver::ResolvedTarget>;
+}
+
+impl<T: TargetDiffIterator + 'static> exports::pb::rules::target_resolver::GuestTargetDiffIterator
+    for T
+{
+    fn next(&self) -> Option<exports::pb::rules::target_resolver::ResolvedTarget> {
+        todo!()
+    }
+}
+
+impl<R: Resolver + 'static> exports::pb::rules::target_resolver::Guest for R {
+    type Resolver = R;
+    type TargetDiffIterator = R::Iterator;
 }

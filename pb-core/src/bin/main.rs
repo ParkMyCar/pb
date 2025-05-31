@@ -1,5 +1,5 @@
 use anyhow::Result;
-use pb_rules_host::HostState;
+use pb_rules_host::{wit::pb::rules::types::Attribute, HostState};
 use tracing_subscriber::EnvFilter;
 use wasmtime::*;
 
@@ -31,23 +31,28 @@ async fn main() -> Result<()> {
     let mut store = Store::new(&engine, host_stuff);
 
     let resolver = pb_rules_host::wit::RuleSet::instantiate(&mut store, &pb_std, &linker).unwrap();
-    let additional_glob = resolver
-        .pb_rules_resolver()
-        .call_additional_interest_glob(&mut store);
-    println!("{additional_glob:?}");
+    // let additional_glob = resolver
+    //     .pb_rules_resolver()
+    //     .call_additional_interest_glob(&mut store);
+    // println!("{additional_glob:?}");
 
     let rule_set = resolver.pb_rules_rules().call_rule_set(&mut store).unwrap();
     for (name, rule) in rule_set {
         println!("rule name: {name}, {:?}", rule.ty());
 
-        if name == "http" {
+        if name == "http-repository" {
             let context = store
                 .data_mut()
                 .context("http", "repository", "0.1.0", "test");
+            let attributes = vec![
+                ("name".to_string(), Attribute::Text("darwin_aarch64".to_string())),
+                ("url".to_string(), Attribute::Text("https://github.com/MaterializeInc/toolchains/releases/download/clang-19.1.6-2/darwin_aarch64.tar.zst".to_string())),
+            ];
+
             let future = resolver
                 .pb_rules_rules()
                 .rule()
-                .call_run(&mut store, rule, &[], context)
+                .call_run(&mut store, rule, &attributes[..], context)
                 .expect("failed to run rule");
 
             let future = futures::future::poll_fn(|cx| {

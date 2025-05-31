@@ -3,7 +3,7 @@
 use std::borrow::Cow;
 use std::collections::BTreeMap;
 
-use futures::future::{BoxFuture, LocalBoxFuture};
+use futures::future::LocalBoxFuture;
 
 use crate::futures::GuestFutureAdapter;
 
@@ -38,6 +38,9 @@ pub trait Rule: Send + Sync + 'static {
     /// The name of this rule.
     fn name(&self) -> Cow<'static, str>;
 
+    /// Specification for the current rule.
+    fn spec(&self) -> crate::exports::pb::rules::rules::RuleSpec;
+
     /// Run the build rule.
     fn execute(
         &self,
@@ -47,9 +50,12 @@ pub trait Rule: Send + Sync + 'static {
 }
 
 impl<R: Rule + 'static> crate::exports::pb::rules::rules::GuestRule for R {
-    fn name() -> crate::_rt::String {
-        "TODO".to_string()
-        // crate::logging::with_logging(|| <R as Rule>::name().to_string())
+    fn name(&self) -> crate::_rt::String {
+        crate::logging::with_logging(|| <R as Rule>::name(self).to_string())
+    }
+
+    fn spec(&self) -> crate::exports::pb::rules::rules::RuleSpec {
+        crate::logging::with_logging(|| <R as Rule>::spec(self))
     }
 
     fn run(
@@ -70,9 +76,12 @@ impl<R: Rule + 'static> crate::exports::pb::rules::rules::GuestRule for R {
 }
 
 impl crate::exports::pb::rules::rules::GuestRule for Box<dyn Rule> {
-    fn name() -> crate::_rt::String {
-        "TODO".to_string()
-        // crate::logging::with_logging(|| <R as Rule>::name().to_string())
+    fn name(&self) -> crate::_rt::String {
+        crate::logging::with_logging(|| Rule::name(&**self).to_string())
+    }
+
+    fn spec(&self) -> crate::exports::pb::rules::rules::RuleSpec {
+        crate::logging::with_logging(|| Rule::spec(&**self))
     }
 
     fn run(
@@ -83,12 +92,14 @@ impl crate::exports::pb::rules::rules::GuestRule for Box<dyn Rule> {
         )>,
         context: crate::exports::pb::rules::rules::Ctx,
     ) -> crate::exports::pb::rules::rules::RuleFuture {
-        let attrs = Attributes {
-            inner: attrs.into_iter().collect(),
-        };
-        let fut = self.execute(attrs, context);
-        let adapter = GuestFutureAdapter::new(fut);
-        crate::exports::pb::rules::rules::RuleFuture::new(adapter)
+        crate::logging::with_logging(|| {
+            let attrs = Attributes {
+                inner: attrs.into_iter().collect(),
+            };
+            let fut = self.execute(attrs, context);
+            let adapter = GuestFutureAdapter::new(fut);
+            crate::exports::pb::rules::rules::RuleFuture::new(adapter)
+        })
     }
 }
 
