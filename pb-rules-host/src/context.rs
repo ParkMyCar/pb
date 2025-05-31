@@ -1,10 +1,27 @@
+use std::sync::Arc;
+
 use crate::wit::pb::rules as wit;
 use crate::HostState;
 
 impl crate::wit::pb::rules::context::Host for HostState {}
 
-#[derive(Default)]
-pub struct Context;
+pub struct Context {
+    rule_set: Arc<str>,
+    rule_name: Arc<str>,
+    rule_version: Arc<str>,
+    target_name: Arc<str>,
+}
+
+impl Context {
+    pub fn new(rule_set: &str, rule_name: &str, rule_version: &str, target_name: &str) -> Self {
+        Context {
+            rule_set: rule_set.into(),
+            rule_name: rule_name.into(),
+            rule_version: rule_version.into(),
+            target_name: target_name.into(),
+        }
+    }
+}
 
 impl crate::wit::pb::rules::context::HostCtx for HostState {
     fn actions(

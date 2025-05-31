@@ -62,7 +62,7 @@ impl HostState {
     pub async fn new() -> Self {
         let filesystem = pb_filesystem::filesystem::Filesystem::new(4, 1024);
 
-        let root = "/Users/parker.timmerman/.pb";
+        let root = "/Users/parker/.pb";
         let root = PbPath::new(root.to_string()).unwrap();
         let scratch_space = pb_filesystem::locations::scratch::ScratchDirectory::new(
             root.clone(),
@@ -108,8 +108,14 @@ impl HostState {
         Ok(())
     }
 
-    pub fn context(&mut self) -> wasmtime::component::Resource<crate::context::Context> {
-        let context = crate::context::Context::default();
+    pub fn context(
+        &mut self,
+        rule_set: &str,
+        rule_name: &str,
+        rule_version: &str,
+        target_name: &str,
+    ) -> wasmtime::component::Resource<crate::context::Context> {
+        let context = crate::context::Context::new(rule_set, rule_name, rule_version, target_name);
         self.resources.push(context).unwrap()
     }
 }

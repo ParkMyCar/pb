@@ -171,12 +171,6 @@ impl fmt::Debug for FilesystemWorker {
     }
 }
 
-impl Drop for FilesystemWorker {
-    fn drop(&mut self) {
-        tracing::info!("shutting fown filesystem worker");
-    }
-}
-
 #[derive(Debug)]
 enum WorkerPool {
     Tokio {

@@ -1,16 +1,15 @@
 //! Utilities to cast between integers.
 
 /// A trait for safe and infallible casts.
-/// 
+///
 /// You can easily cast between integers using the `as` keywords, but these
 /// casts aren't always says, e.g. using `as` you can cast a `u64` to a `u32`
 /// but you'll lose precision.
-/// 
+///
 /// This trait facilitates casts that are always known to be safe.
 pub trait CastFrom<T> {
     fn cast_from(from: T) -> Self;
 }
-
 
 macro_rules! cast_from {
     ($from:ty, $to:ty) => {
@@ -33,7 +32,6 @@ macro_rules! cast_from {
         }
     };
 }
-
 
 #[cfg(any(target_pointer_width = "32", target_pointer_width = "64"))]
 mod target32 {
@@ -64,12 +62,13 @@ mod target32 {
     cast_from!(i32, i64);
     cast_from!(i32, isize);
 
+    cast_from!(usize, u64);
     cast_from!(u64, u64);
+    cast_from!(isize, i64);
     cast_from!(i64, i64);
 }
 #[cfg(any(target_pointer_width = "32", target_pointer_width = "64"))]
 pub use target32::*;
-
 
 // Casts that are safe on 64-bit architectures.
 #[cfg(target_pointer_width = "64")]

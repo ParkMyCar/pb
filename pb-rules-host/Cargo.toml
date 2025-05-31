@@ -11,6 +11,7 @@ async-stream = "0.3"
 bytes = "1"
 futures = "0.3"
 pb-filesystem = { path = "../pb-filesystem" }
+pb-ore = { path = "../pb-ore" }
 pb-types = { path = "../pb-types" }
 reqwest = "0.12"
 tokio = "1"

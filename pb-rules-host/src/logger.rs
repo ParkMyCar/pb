@@ -11,6 +11,17 @@ impl wit::logging::Host for HostState {
         location: wit::logging::Location,
         fields: wasmtime::component::__internal::Vec<wit::logging::Field>,
     ) -> () {
-        println!("{level:?} @ {location:?} --> {message} with {fields:?}");
+        let fields: Vec<_> = fields
+            .into_iter()
+            .map(|field| (field.name, field.value))
+            .collect();
+
+        match level {
+            wit::logging::Level::Trace => tracing::trace!(target: "", ?fields, "{message}"),
+            wit::logging::Level::Debug => tracing::debug!(target: "", ?fields, "{message}"),
+            wit::logging::Level::Info => tracing::info!(target: "", ?fields, "{message}"),
+            wit::logging::Level::Warn => tracing::warn!(target: "", ?fields, "{message}"),
+            wit::logging::Level::Error => tracing::error!(target: "", ?fields, "{message}"),
+        };
     }
 }

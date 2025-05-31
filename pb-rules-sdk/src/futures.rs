@@ -2,7 +2,7 @@
 //! an async friendly way in the host.
 
 use futures::Stream;
-use futures::future::{BoxFuture, FutureExt};
+use futures::future::{BoxFuture, FutureExt, LocalBoxFuture};
 use std::cell::RefCell;
 use std::mem::ManuallyDrop;
 use std::pin::Pin;
@@ -48,11 +48,11 @@ impl FutureCompat2<Result<(), String>> for crate::pb::rules::types::FailableFutu
 /// that we define in WIT. This type adapts a regular Rust future to one that
 /// can be polled by the WASM host.
 pub struct GuestFutureAdapter<T> {
-    inner: RefCell<BoxFuture<'static, T>>,
+    inner: RefCell<LocalBoxFuture<'static, T>>,
 }
 
 impl<T> GuestFutureAdapter<T> {
-    pub fn new(fut: BoxFuture<'static, T>) -> Self {
+    pub fn new(fut: LocalBoxFuture<'static, T>) -> Self {
         GuestFutureAdapter {
             inner: RefCell::new(fut),
         }

@@ -191,6 +191,12 @@ impl Handle<FileKind> {
         Ok(())
     }
 
+    /// Read some bytes from the file into the provided buffer, in a blocking fashion.
+    pub fn read_blocking(&self, buf: &mut [u8], offset: usize) -> Result<usize, crate::Error> {
+        let inner = self.to_inner();
+        FilesystemPlatform::read(inner, buf, offset)
+    }
+
     /// Read the contents of the file executing some work on the worker's thread pool.
     pub async fn read_with<'a, R, F>(&self, work: F) -> Result<R, crate::Error>
     where

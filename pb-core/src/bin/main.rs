@@ -41,7 +41,9 @@ async fn main() -> Result<()> {
         println!("rule name: {name}, {:?}", rule.ty());
 
         if name == "http" {
-            let context = store.data_mut().context();
+            let context = store
+                .data_mut()
+                .context("http", "repository", "0.1.0", "test");
             let future = resolver
                 .pb_rules_rules()
                 .rule()

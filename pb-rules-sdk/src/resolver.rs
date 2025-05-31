@@ -18,7 +18,7 @@ impl<R: Resolver + 'static> exports::pb::rules::resolver::Guest for R {
         file: exports::pb::rules::resolver::File,
     ) -> Result<crate::_rt::Vec<exports::pb::rules::resolver::Target>, crate::_rt::String> {
         crate::logging::with_logging(|| {
-            let contents = file.read();
+            let contents = vec![];
             <R as Resolver>::resolve_target(contents)
         })
     }

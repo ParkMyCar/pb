@@ -3,6 +3,7 @@ use std::sync::Arc;
 use futures::future::BoxFuture;
 use futures::FutureExt;
 use pb_filesystem::locations::scratch::{ScratchDirectoryHandle, ScratchFileHandle};
+use pb_ore::cast::CastFrom;
 use pb_types::Timespec;
 
 use crate::types::HostWaker;
@@ -17,8 +18,6 @@ impl wit::read_filesystem::Host for HostState {}
 pub struct WriteClient {}
 
 pub struct FileHandle {
-    /// Name of the file.
-    name: String,
     /// Open filesystem resource.
     inner: pb_filesystem::handle::FileHandle,
 }
@@ -29,14 +28,26 @@ impl wit::read_filesystem::HostFile for HostState {
         self_: wasmtime::component::Resource<wit::read_filesystem::File>,
     ) -> wasmtime::component::__internal::String {
         let handle = self.resources.get(&self_).unwrap();
-        handle.name.clone().into()
+        "TODO".to_string()
     }
 
     fn read(
         &mut self,
-        self_: wasmtime::component::Resource<wit::read_filesystem::File>,
+        self_: wasmtime::component::Resource<FileHandle>,
+        length: u64,
+        offset: u64,
     ) -> wasmtime::component::__internal::Vec<u8> {
-        vec![42u8; 10].into()
+        let handle = self.resources.get(&self_).unwrap();
+        // TODO: Use MaybeUninit here instead of zero-ing out the vector.
+        let mut buffer = vec![0u8; usize::cast_from(length)];
+        let bytes_read = handle
+            .inner
+            .read_blocking(&mut buffer[..], usize::cast_from(offset))
+            .expect("failed to read");
+        // Truncate the buffer only to what was read.
+        buffer.truncate(bytes_read);
+
+        buffer.into()
     }
 
     fn read_stream(
@@ -271,6 +282,31 @@ impl wit::write_filesystem::HostWriteFile for HostState {
         .boxed();
 
         self.resources.push(FailableFuture::new(future)).unwrap()
+    }
+
+    fn into_read(
+        &mut self,
+        self_: wasmtime::component::Resource<WriteFileHandle>,
+    ) -> wasmtime::component::Resource<wit::write_filesystem::File> {
+        let scratch_file = {
+            let scratch_file = self.resources.get(&self_).unwrap();
+            let mut scratch_file = scratch_file.state.try_lock().expect("TODO");
+            std::mem::replace(&mut *scratch_file, WriteFileHandleInner::Closed)
+        };
+
+        match scratch_file {
+            WriteFileHandleInner::Root { file, .. } => {
+                let handle = FileHandle {
+                    inner: file.into_inner(),
+                };
+                self.resources.push(handle).unwrap()
+            }
+            WriteFileHandleInner::Child { file, .. } => {
+                let handle = FileHandle { inner: file };
+                self.resources.push(handle).unwrap()
+            }
+            WriteFileHandleInner::Closed => panic!("TODO, return an error from this API"),
+        }
     }
 
     fn close(

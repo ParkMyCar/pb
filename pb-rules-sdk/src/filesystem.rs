@@ -1,7 +1,42 @@
 use futures::FutureExt;
+use pb_ore::cast::CastFrom;
 use std::pin::Pin;
 
 use crate::futures::FutureCompat2;
+
+pub struct FileReader {
+    file: crate::pb::rules::read_filesystem::File,
+    offset: usize,
+}
+
+impl crate::pb::rules::read_filesystem::File {
+    pub fn into_reader(self) -> FileReader {
+        FileReader {
+            file: self,
+            offset: 0,
+        }
+    }
+}
+
+impl std::io::Read for FileReader {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let bytes = crate::pb::rules::read_filesystem::File::read(
+            &self.file,
+            u64::cast_from(buf.len()),
+            u64::cast_from(self.offset),
+        );
+        let num_bytes = bytes.len();
+
+        // TODO: A zero copy API would be way better.
+        buf[..num_bytes].copy_from_slice(&bytes[..]);
+        self.offset = self
+            .offset
+            .checked_add(bytes.len())
+            .expect("overflowed offset when reading");
+
+        Ok(num_bytes)
+    }
+}
 
 pub struct HostCreateFileFutureAdapter {
     inner: crate::pb::rules::write_filesystem::CreateFileFuture,

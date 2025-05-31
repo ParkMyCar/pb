@@ -3,7 +3,7 @@
 use std::borrow::Cow;
 use std::collections::BTreeMap;
 
-use futures::future::BoxFuture;
+use futures::future::{BoxFuture, LocalBoxFuture};
 
 use crate::futures::GuestFutureAdapter;
 
@@ -43,7 +43,7 @@ pub trait Rule: Send + Sync + 'static {
         &self,
         attrs: Attributes,
         context: crate::pb::rules::context::Ctx,
-    ) -> BoxFuture<'static, Vec<crate::pb::rules::types::Provider>>;
+    ) -> LocalBoxFuture<'static, Vec<crate::pb::rules::types::Provider>>;
 }
 
 impl<R: Rule + 'static> crate::exports::pb::rules::rules::GuestRule for R {
