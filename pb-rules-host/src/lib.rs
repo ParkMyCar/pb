@@ -7,6 +7,7 @@
 //!
 //! This crate contains the host implementations for our WIT interfaces.
 
+use pb_filesystem::path::PbPath;
 use wasmtime::component::ResourceTable;
 
 use crate::wit::pb::rules::context::WriteClient;
@@ -17,9 +18,12 @@ pub mod wit {
         with: {
             "pb:rules/read-filesystem@0.1.0/file": crate::filesystem::FileHandle,
             "pb:rules/write-filesystem@0.1.0/write-client": crate::filesystem::WriteClient,
-            "pb:rules/write-filesystem@0.1.0/write-file": crate::filesystem::FileHandle,
+            "pb:rules/write-filesystem@0.1.0/write-file": crate::filesystem::WriteFileHandle,
+            "pb:rules/write-filesystem@0.1.0/create-file-future": crate::filesystem::CreateFileFuture,
+            "pb:rules/write-filesystem@0.1.0/write-directory": crate::filesystem::WriteDirectoryHandle,
+            "pb:rules/write-filesystem@0.1.0/create-directory-future": crate::filesystem::CreateDirectoryFuture,
+            "pb:rules/types@0.1.0/failable-future": crate::types::FailableFuture,
             "pb:rules/types@0.1.0/bytes-stream": crate::types::BytesStream,
-            "pb:rules/types@0.1.0/bytes-sink": crate::types::BytesSink,
             "pb:rules/types@0.1.0/waker": crate::types::HostWaker,
             "pb:rules/types@0.1.0/provider-dict": crate::types::Provider,
             "pb:rules/http@0.1.0/client": crate::http::Client,
@@ -38,8 +42,15 @@ pub mod logger;
 pub mod types;
 
 pub struct HostState {
+    /// Interface for making HTTP requests.
     pub(crate) http_client: reqwest::Client,
+    /// Interface for the underlying filesystem.
     pub(crate) filesystem: pb_filesystem::filesystem::Filesystem,
+
+    /// Scratch directory that we can create files and directories in.
+    pub(crate) scratch_space: pb_filesystem::locations::scratch::ScratchDirectory,
+    /// Directory for externally downloaded repositories.
+    pub(crate) repositories: pb_filesystem::locations::repositories::RepositoryDirectory,
 
     pub(crate) write_filesystem: crate::filesystem::WriteClient,
 
@@ -48,12 +59,29 @@ pub struct HostState {
 }
 
 impl HostState {
-    pub fn new(handle: tokio::runtime::Handle) -> Self {
-        let filesystem = pb_filesystem::filesystem::Filesystem::new_tokio(handle, 128);
+    pub async fn new() -> Self {
+        let filesystem = pb_filesystem::filesystem::Filesystem::new(4, 1024);
+
+        let root = "/Users/parker.timmerman/.pb";
+        let root = PbPath::new(root.to_string()).unwrap();
+        let scratch_space = pb_filesystem::locations::scratch::ScratchDirectory::new(
+            root.clone(),
+            filesystem.clone(),
+        )
+        .await
+        .unwrap();
+        let repositories = pb_filesystem::locations::repositories::RepositoryDirectory::new(
+            root,
+            filesystem.clone(),
+        )
+        .await
+        .unwrap();
 
         HostState {
             http_client: reqwest::Client::default(),
             filesystem,
+            scratch_space,
+            repositories,
             write_filesystem: WriteClient::default(),
             resources: ResourceTable::new(),
         }
@@ -66,6 +94,7 @@ impl HostState {
     where
         U: wit::pb::rules::logging::Host
             + wit::pb::rules::read_filesystem::Host
+            + wit::pb::rules::write_filesystem::Host
             + wit::pb::rules::types::Host
             + wit::pb::rules::context::Host
             + wit::pb::rules::http::Host,
@@ -75,6 +104,7 @@ impl HostState {
         wit::pb::rules::types::add_to_linker(linker, get)?;
         wit::pb::rules::http::add_to_linker(linker, get)?;
         wit::pb::rules::context::add_to_linker(linker, get)?;
+        wit::pb::rules::write_filesystem::add_to_linker(linker, get)?;
         Ok(())
     }
 

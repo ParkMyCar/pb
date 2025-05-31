@@ -19,7 +19,7 @@ async fn smoketest_writing() {
     let (mut handle, _stat) = filesystem.open(path).as_file().with_create().await.unwrap();
 
     let content = "hello world I am writing a file".as_bytes().to_vec();
-    handle.write(content.clone()).await.unwrap();
+    handle.write(content.clone(), 0).await.unwrap();
 
     let data = handle
         .read_with(|mut iterator| {
@@ -55,7 +55,7 @@ async fn smoketest_mkdir() {
         .unwrap();
 
     let content = b"i am some data that will get written to disk".to_vec();
-    child.write(content.clone()).await.unwrap();
+    child.write(content.clone(), 0).await.unwrap();
 
     let rnd_content = child
         .read_with(|mut iterator| {

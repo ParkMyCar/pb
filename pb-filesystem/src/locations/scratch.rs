@@ -1,3 +1,4 @@
+use std::future::Future;
 use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 
@@ -8,7 +9,7 @@ use crate::handle::{DirectoryHandle, DirectoryKind, FileKind};
 use crate::path::PbPath;
 use crate::platform::{FilesystemPlatform, Platform, PlatformFilename};
 
-static SCRATCH_DIRECTORY_NAME: &str = ".pb_scratch";
+static SCRATCH_DIRECTORY_NAME: &str = "scratch";
 
 /// Name for the extended attribute to describe the rule set that created this scratch file.
 static SCRATCH_XATTR_TAG_RULESET_NAME: &str = "org.pb.scratch.rule_set";
@@ -52,39 +53,46 @@ impl ScratchDirectory {
     }
 
     /// Create a new file in the scratch space with a random name.
-    pub async fn file(&self) -> Result<ScratchFileHandle, crate::Error> {
+    pub fn file(&self) -> impl Future<Output = Result<ScratchFileHandle, crate::Error>> + 'static {
         let filename = uuid::Uuid::new_v4().to_string();
-        tracing::debug!(?filename, "creating new scratch file");
-
-        let (inner, _stat) = self
+        let builder = self
             .root_handle
             .openat(filename.clone())
             .as_file()
-            .with_create()
-            .await?;
-        Ok(ScratchHandle {
-            inner,
-            root_handle: Arc::clone(&self.root_handle),
-            filename,
-        })
+            .with_create();
+        let root_handle = Arc::clone(&self.root_handle);
+
+        async move {
+            tracing::debug!(?filename, "creating new scratch file");
+            let (inner, _stat) = builder.await?;
+            Ok(ScratchHandle {
+                inner,
+                root_handle,
+                filename,
+            })
+        }
     }
 
     /// Create a new directory in the scratch space with a random name.
-    pub async fn directory(&self) -> Result<ScratchDirectoryHandle, crate::Error> {
+    pub fn directory(
+        &self,
+    ) -> impl Future<Output = Result<ScratchDirectoryHandle, crate::Error>> + 'static {
         let filename = uuid::Uuid::new_v4().to_string();
-        tracing::debug!(?filename, "creating new scratch directory");
-
-        let inner = self
+        let builder = self
             .root_handle
             .openat(filename.clone())
             .as_directory()
-            .with_create()
-            .await?;
-        Ok(ScratchHandle {
-            inner,
-            root_handle: Arc::clone(&self.root_handle),
-            filename,
-        })
+            .with_create();
+        let root_handle = Arc::clone(&self.root_handle);
+
+        async move {
+            tracing::debug!(?filename, "creating new scratch directory");
+            Ok(ScratchHandle {
+                inner: builder.await?,
+                root_handle,
+                filename,
+            })
+        }
     }
 }
 
@@ -99,8 +107,13 @@ pub struct ScratchHandle<Kind> {
 }
 
 impl<K> ScratchHandle<K> {
+    /// Returns a mutable reference to the inner handle.
+    pub fn inner_mut(&mut self) -> &mut crate::handle::Handle<K> {
+        &mut self.inner
+    }
+
     /// Tag this [`ScratchHandle`] with the ruleset that created it.
-    pub async fn tag_ruleset(&self, name: &str) -> Result<(), crate::Error> {
+    pub async fn tag_ruleset(&mut self, name: &str) -> Result<(), crate::Error> {
         tracing::debug!(filename = ?self.filename, ?name, "tagging scratch file with ruleset");
         self.inner
             .setxattr(
@@ -112,7 +125,7 @@ impl<K> ScratchHandle<K> {
     }
 
     /// Tag this [`ScratchHandle`] with a general comment.
-    pub async fn tag_comment(&self, comment: &str) -> Result<(), crate::Error> {
+    pub async fn tag_comment(&mut self, comment: &str) -> Result<(), crate::Error> {
         tracing::debug!(filename = ?self.filename, ?comment, "tagging scratch file with comment");
         self.inner
             .setxattr(
@@ -127,7 +140,7 @@ impl<K> ScratchHandle<K> {
     /// outside the scratch space.
     pub async fn persistat(
         self,
-        to_handle: DirectoryHandle,
+        to_handle: &DirectoryHandle,
         to_filename: String,
     ) -> Result<crate::handle::Handle<K>, crate::Error> {
         let ScratchHandle {
@@ -144,13 +157,14 @@ impl<K> ScratchHandle<K> {
             "durably persist a scratch resource"
         );
 
+        let to_handle = to_handle.to_inner();
         inner
             .worker
             .run(move || {
                 FilesystemPlatform::renameat(
                     root_handle.to_inner(),
                     from_filename,
-                    to_handle.to_inner(),
+                    to_handle,
                     to_filename,
                 )
             })

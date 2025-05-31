@@ -4,7 +4,7 @@ pub mod filesystem;
 pub mod handle;
 pub mod path;
 pub mod platform;
-pub mod scratch;
+pub mod locations;
 pub mod tree;
 
 #[cfg(test)]

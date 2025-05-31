@@ -1,10 +1,9 @@
 use std::collections::BTreeMap;
-use std::pin::Pin;
 
+use futures::future::BoxFuture;
 use futures::stream::BoxStream;
-use futures::{Sink, SinkExt, StreamExt};
+use futures::{FutureExt, StreamExt};
 
-use crate::http::Response;
 use crate::wit::pb::rules as wit;
 use crate::HostState;
 
@@ -74,6 +73,40 @@ impl wit::types::HostProviderDict for HostState {
     }
 }
 
+pub struct FailableFuture {
+    pub(crate) inner: BoxFuture<'static, Result<(), String>>,
+}
+
+impl FailableFuture {
+    pub fn new(inner: BoxFuture<'static, Result<(), String>>) -> Self {
+        FailableFuture { inner }
+    }
+}
+
+impl wit::types::HostFailableFuture for HostState {
+    fn poll(
+        &mut self,
+        self_: wasmtime::component::Resource<FailableFuture>,
+        waker: wasmtime::component::Resource<HostWaker>,
+    ) -> wit::types::FailablePoll {
+        let waker = self.resources.get(&waker).unwrap().clone();
+        let resource = self.resources.get_mut(&self_).unwrap();
+        let mut context = std::task::Context::from_waker(waker.waker());
+
+        match resource.inner.poll_unpin(&mut context) {
+            std::task::Poll::Pending => wit::types::FailablePoll::Pending,
+            std::task::Poll::Ready(result) => wit::types::FailablePoll::Ready(result),
+        }
+    }
+
+    fn drop(
+        &mut self,
+        _rep: wasmtime::component::Resource<FailableFuture>,
+    ) -> wasmtime::Result<()> {
+        Ok(())
+    }
+}
+
 /// An asynchronous iterator of bytes from the Host.
 pub struct BytesStream {
     pub(crate) stream: BoxStream<'static, Vec<u8>>,
@@ -98,45 +131,5 @@ impl wit::types::HostBytesStream for HostState {
     fn drop(&mut self, rep: wasmtime::component::Resource<BytesStream>) -> wasmtime::Result<()> {
         // self.resources.delete(rep).unwrap();
         Ok(())
-    }
-}
-
-///
-pub struct BytesSink {
-    pub(crate) inner: Pin<Box<dyn Sink<Vec<u8>, Error = String>>>,
-}
-
-impl wit::types::HostBytesSink for HostState {
-    fn start_send(
-        &mut self,
-        self_: wasmtime::component::Resource<wit::types::BytesSink>,
-        bytes: wasmtime::component::__internal::Vec<u8>,
-    ) {
-        let sink = self.resources.get_mut(&self_).unwrap();
-        sink.inner
-            .start_send_unpin(bytes.into())
-            .expect("TODO we should take errors");
-    }
-
-    fn poll_flush(
-        &mut self,
-        self_: wasmtime::component::Resource<wit::types::BytesSink>,
-        waker: wasmtime::component::Resource<HostWaker>,
-    ) -> wit::types::FlushPoll {
-        let waker = self.resources.get(&waker).unwrap().clone();
-        let sink = self.resources.get_mut(&self_).unwrap();
-        let mut context = std::task::Context::from_waker(waker.waker());
-
-        match sink.inner.poll_flush_unpin(&mut context) {
-            std::task::Poll::Pending => wit::types::FlushPoll::Pending,
-            std::task::Poll::Ready(_) => wit::types::FlushPoll::Ready,
-        }
-    }
-
-    fn drop(
-        &mut self,
-        rep: wasmtime::component::Resource<wit::types::BytesSink>,
-    ) -> wasmtime::Result<()> {
-        todo!()
     }
 }

@@ -7,9 +7,11 @@ license.workspace = true
 include.workspace = true
 
 [dependencies]
+async-stream = "0.3"
 bytes = "1"
 futures = "0.3"
 pb-filesystem = { path = "../pb-filesystem" }
+pb-types = { path = "../pb-types" }
 reqwest = "0.12"
 tokio = "1"
 tracing = "0.1"

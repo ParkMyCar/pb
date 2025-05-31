@@ -1,6 +1,7 @@
 //! Module that defines a strongly typed filesystem handle.
 
 use futures::future::{Future, TryFutureExt};
+use pb_types::Timespec;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 
 use std::borrow::Cow;
@@ -84,7 +85,7 @@ impl<A> Handle<A> {
     }
 
     /// Set the specified xattr on the file.
-    pub async fn setxattr(&self, name: String, data: Vec<u8>) -> Result<(), crate::Error> {
+    pub async fn setxattr(&mut self, name: String, data: Vec<u8>) -> Result<(), crate::Error> {
         let inner = self.to_inner();
         let name = PlatformFilenameType::try_new(name)?;
         let () = self
@@ -92,6 +93,11 @@ impl<A> Handle<A> {
             .run(move || FilesystemPlatform::fsetxattr(inner, name, &data[..]))
             .await?;
         Ok(())
+    }
+
+    /// Set the mtime on the file.
+    pub async fn setmtime(&mut self, time: Timespec) -> Result<(), crate::Error> {
+        todo!()
     }
 
     /// Close the filesystem handle, releasing its resources.
@@ -176,11 +182,11 @@ impl Handle<DirectoryKind> {
 
 impl Handle<FileKind> {
     /// Write the provided data to the file.
-    pub async fn write(&mut self, data: Vec<u8>) -> Result<(), crate::Error> {
+    pub async fn write(&mut self, data: Vec<u8>, offset: usize) -> Result<(), crate::Error> {
         let inner = self.to_inner();
         let _result = self
             .worker
-            .run(move || FilesystemPlatform::write(inner, &data[..], 0))
+            .run(move || FilesystemPlatform::write(inner, &data[..], offset))
             .await?;
         Ok(())
     }

@@ -1,19 +1,19 @@
 //! Ideas:
-//! 
+//!
 //! 1. A "target discovery" phase that allows rules to read their own spec files and tell the build
 //!    system what to do. For example, the Rust rules could read Cargo.toml files and return targets
 //!    for those.
 //!    1a. First-class support for listing targets. For example, I had no idea that zstd supported
 //!        a separate multi-threaded build, it would be great to make that more discoverable.
-//! 
+//!
 //! 2. First-class support for rules to add subcommands, e.g. `cargo install`-like
 //!
 //! 3. First-class support for documenting targets. e.g. a `--help` like output where a library
 //!    author can document how one target differs from another.
-//! 
+//!
 //! 4. Define a logging spec so process wrappers can communicate debugging into with the build
 //!    system, most emit messages over a file descriptor.
-//! 
+//!
 
 use pb_filesystem::filesystem::Filesystem;
 use pb_filesystem::path::PbPath;
@@ -34,12 +34,7 @@ impl Workspace {
         let metadata_filename = blake3::hash(root.inner.as_bytes());
         let metadata_dir = format!("{}/{metadata_filename}", metadata_root.inner);
         let metadata_dir = PbPath::new(metadata_dir).expect("known valid");
-
-        let filesystem = if let Ok(handle) = tokio::runtime::Handle::try_current() {
-            Filesystem::new_tokio(handle, 1024)
-        } else {
-            todo!("support a non-tokio Filesystem")
-        };
+        let filesystem = Filesystem::new(4, 1024);
 
         Workspace {
             root_dir: root,

@@ -1,9 +1,14 @@
 use anyhow::Result;
 use pb_rules_host::HostState;
+use tracing_subscriber::EnvFilter;
 use wasmtime::*;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::from_default_env())
+        .init();
+
     // Modules can be compiled through either the text or binary format
     let mut config = Config::new();
     config.wasm_component_model(true).wasm_multi_memory(true);
@@ -22,25 +27,14 @@ async fn main() -> Result<()> {
         println!("export: {x:?}");
     }
 
-    let host_stuff = HostState::new(tokio::runtime::Handle::current());
+    let host_stuff = HostState::new().await;
     let mut store = Store::new(&engine, host_stuff);
-    // let std_instance = linker.instantiate(&mut store, &pb_std)?;
 
     let resolver = pb_rules_host::wit::RuleSet::instantiate(&mut store, &pb_std, &linker).unwrap();
     let additional_glob = resolver
         .pb_rules_resolver()
         .call_additional_interest_glob(&mut store);
     println!("{additional_glob:?}");
-
-    let mut resource_table = wasmtime::component::ResourceTable::new();
-    let file_handle = resource_table
-        .push(pb_rules_host::filesystem::FileHandle::default())
-        .unwrap();
-
-    let result = resolver
-        .pb_rules_resolver()
-        .call_resolve_target(&mut store, file_handle);
-    println!("{result:?}");
 
     let rule_set = resolver.pb_rules_rules().call_rule_set(&mut store).unwrap();
     for (name, rule) in rule_set {

@@ -2,7 +2,7 @@
 //! an async friendly way in the host.
 
 use futures::Stream;
-use futures::future::BoxFuture;
+use futures::future::{BoxFuture, FutureExt};
 use std::cell::RefCell;
 use std::mem::ManuallyDrop;
 use std::pin::Pin;
@@ -11,6 +11,37 @@ use std::task::{RawWaker, RawWakerVTable};
 
 pub trait FutureCompat2<T> {
     fn compat(self) -> BoxFuture<'static, T>;
+}
+
+pub struct HostFailableFutureAdapter {
+    inner: crate::pb::rules::types::FailableFuture,
+}
+
+impl Future for HostFailableFutureAdapter {
+    type Output = Result<(), String>;
+
+    fn poll(
+        self: Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Self::Output> {
+        crate::logging::with_logging(|| {
+            let waker = cx.waker().data() as *const ();
+            let waker = waker as *const crate::exports::pb::rules::rules::Waker;
+            let waker = unsafe { &*waker };
+            let waker = waker.clone();
+
+            match self.as_ref().inner.poll(waker) {
+                crate::pb::rules::types::FailablePoll::Pending => std::task::Poll::Pending,
+                crate::pb::rules::types::FailablePoll::Ready(val) => std::task::Poll::Ready(val),
+            }
+        })
+    }
+}
+
+impl FutureCompat2<Result<(), String>> for crate::pb::rules::types::FailableFuture {
+    fn compat(self) -> BoxFuture<'static, Result<(), String>> {
+        HostFailableFutureAdapter { inner: self }.boxed()
+    }
 }
 
 /// Rule implementations (i.e. WASM Guest functions) are provided a "waker"
@@ -88,7 +119,6 @@ impl WakerAdapter2 {
 
     pub fn waker(self) -> std::task::Waker {
         let waker = Arc::into_raw(self.inner) as *const ();
-        tracing::debug!(?waker, "pointer to waker");
         unsafe { std::task::Waker::new(waker, &ADAPTER_WAKER_VTABLE) }
     }
 }

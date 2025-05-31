@@ -27,3 +27,16 @@ pub struct Timespec {
     /// Not all filesystems provide this, thus often it will be 0.
     pub nanos: i64,
 }
+
+impl Timespec {
+    /// Create a [`Timespec`] from the number of milliseconds since the epoch.
+    pub fn from_epoch_millis(millis: u64) -> Self {
+        let secs = millis / 1000;
+        let nanos = (millis % 1000) * 10u64.pow(6);
+
+        Timespec {
+            secs: secs.try_into().expect("overlowed timespec"),
+            nanos: nanos.try_into().expect("overlowed timespec"),
+        }
+    }
+}
