@@ -67,6 +67,13 @@ pub trait Platform {
         to_filename: Self::Filename,
     ) -> Result<(), Error>;
 
+    fn swapat(
+        from_handle: Self::Handle,
+        from_filename: Self::Filename,
+        to_handle: Self::Handle,
+        to_filename: Self::Filename,
+    ) -> Result<(), Error>;
+
     fn fsetxattr(handle: Self::Handle, name: Self::Filename, data: &[u8]) -> Result<(), Error>;
     fn fgetxattr(
         handle: Self::Handle,

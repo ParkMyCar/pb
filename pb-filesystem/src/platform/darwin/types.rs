@@ -4,6 +4,7 @@
 
 pub(crate) type c_char = i8;
 pub(crate) type c_int = i32;
+pub(crate) type c_uint = u32;
 
 #[derive(Debug, Copy, Clone)]
 pub struct DarwinHandle {
@@ -145,6 +146,13 @@ pub(crate) mod flags {
 
     /// Return the full path of the file descriptor.
     pub const F_GETPATH: c_int = 50;
+
+    /// Cause the source and target to be atomically swapped, on supported filesystems.
+    pub const RENAME_SWAP: c_uint = 0x00000002;
+    /// Return an error if the destination already exists.
+    pub const RENAME_EXCL: c_uint = 0x00000004;
+    /// An error is returned if any symbolic links are encountered during pathname resolution.
+    pub const RENAME_NOFOLLOW_ANY: c_uint = 0x00000010;
 }
 
 pub(crate) mod mode {

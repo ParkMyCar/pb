@@ -2,7 +2,7 @@
 
 use crate::platform::darwin::types::rlimit;
 
-use super::types::{self, c_char, c_int, dir_stream, dirent, file_descriptor};
+use super::types::{self, c_char, c_int, c_uint, dir_stream, dirent, file_descriptor};
 
 unsafe extern "C" {
     /// Open the file at `path` with the provided flags.
@@ -45,6 +45,14 @@ unsafe extern "C" {
         old: *const c_char,
         newfd: file_descriptor,
         new: *const c_char,
+    ) -> c_int;
+
+    pub unsafe fn renameatx_np(
+        oldfd: file_descriptor,
+        old: *const c_char,
+        newfd: file_descriptor,
+        new: *const c_char,
+        flags: c_uint,
     ) -> c_int;
 
     /// Get an extended attribute value.

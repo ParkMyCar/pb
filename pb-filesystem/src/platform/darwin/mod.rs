@@ -273,6 +273,28 @@ impl Platform for DarwinPlatform {
         Ok(())
     }
 
+    fn swapat(
+        from_handle: Self::Handle,
+        from_filename: Self::Filename,
+        to_handle: Self::Handle,
+        to_filename: Self::Filename,
+    ) -> Result<(), crate::Error> {
+        let from = CString::from(from_filename);
+        let to = CString::from(to_filename);
+
+        let result = unsafe {
+            syscalls::renameatx_np(
+                from_handle.into_raw(),
+                from.as_ptr(),
+                to_handle.into_raw(),
+                to.as_ptr(),
+                types::flags::RENAME_SWAP,
+            )
+        };
+        check_result(result)?;
+        Ok(())
+    }
+
     fn fsetxattr(
         handle: Self::Handle,
         name: Self::Filename,

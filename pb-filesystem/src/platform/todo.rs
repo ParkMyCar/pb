@@ -77,6 +77,15 @@ impl Platform for TodoPlatform {
         todo!("renameat")
     }
 
+    fn swapat(
+        _from_handle: Self::Handle,
+        _from_filename: Self::Filename,
+        _to_handle: Self::Handle,
+        _to_filename: Self::Filename,
+    ) -> Result<(), crate::Error> {
+        todo!("swapat")
+    }
+
     fn fsetxattr(
         _handle: Self::Handle,
         _name: Self::Filename,
