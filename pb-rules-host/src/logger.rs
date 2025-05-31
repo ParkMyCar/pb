@@ -41,11 +41,11 @@ impl wit::logging::Host for HostState {
         };
 
         match level {
-            wit::logging::Level::Trace => tracing::trace!(name: "", target: "", "{fmted}"),
-            wit::logging::Level::Debug => tracing::debug!(name: "", target: "", "{fmted}"),
-            wit::logging::Level::Info => tracing::info!(name: "", target: "", "{fmted}"),
-            wit::logging::Level::Warn => tracing::warn!(name: "", target: "", "{fmted}"),
-            wit::logging::Level::Error => tracing::error!(name: "", target: "", "{fmted}"),
+            wit::logging::Level::Trace => tracing::trace!(name: "", target: "wasm", "{fmted}"),
+            wit::logging::Level::Debug => tracing::debug!(name: "", target: "wasm", "{fmted}"),
+            wit::logging::Level::Info => tracing::info!(name: "", target: "wasm", "{fmted}"),
+            wit::logging::Level::Warn => tracing::warn!(name: "", target: "wasm", "{fmted}"),
+            wit::logging::Level::Error => tracing::error!(name: "", target: "wasm", "{fmted}"),
         };
     }
 }
