@@ -8,9 +8,11 @@ include.workspace = true
 
 [dependencies]
 ansi_term = "0.12"
+anyhow = "1"
 async-stream = "0.3"
 bytes = "1"
 futures = "0.3"
+pb-cfg = { path = "../pb-cfg" }
 pb-filesystem = { path = "../pb-filesystem" }
 pb-ore = { path = "../pb-ore" }
 pb-types = { path = "../pb-types" }

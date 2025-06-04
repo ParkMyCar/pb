@@ -11,13 +11,20 @@ license.workspace = true
 [dependencies]
 anyhow = "1"
 blake3 = "1"
+derivative = "2"
 futures = "0.3"
+pb-cfg = { path = "../pb-cfg" }
 pb-filesystem = { path = "../pb-filesystem" }
 pb-rules-host = { path = "../pb-rules-host" }
+reqwest = "0.12"
+semver = "1"
+serde = { version = "1", features = ["derive"] }
+tokio = { version = "1", default-features = false, features = ["rt", "macros"] }
+toml = { version = "0.8", features = ["parse"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 wasmtime = { version = "32", features = [
     "runtime",
     "cranelift",
     "component-model",
 ] }
-tokio = { version = "1", default-features = false, features = ["rt", "macros"] }
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }

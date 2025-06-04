@@ -7,7 +7,7 @@ use std::borrow::Cow;
 use std::fmt;
 
 /// Format for logs emitted from WebAssembly.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct LoggingFormat {
     /// Whether or not ANSI color codes or other control sequences are supported.
     ///

@@ -1,4 +1,3 @@
 [rules]
-std = "0.1"
-
+std = { path = "/Users/parker/Development/pb/pb-std-rules/pb_std_rules-component.wasm" }
 

@@ -1,0 +1,12 @@
+[package]
+name = "pb-cfg"
+version = "0.1.0"
+edition = "2024"
+authors.workspace = true
+license.workspace = true
+include.workspace = true
+
+[dependencies]
+anyhow = "1"
+compact_str = "0.9"
+pb-ore = { path = "../pb-ore" }

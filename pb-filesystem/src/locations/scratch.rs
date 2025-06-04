@@ -22,10 +22,10 @@ static SCRATCH_XATTR_TAG_COMMENT_NAME: &str = "org.pb.scratch.comment";
 /// scratch space and once it's complete, move it to the final location. This
 /// way if the download only partially completes we're not left with a
 /// corrupted file.
-/// 
+///
 /// TODO: Add automatic tracking of leaked scratch files.
 #[derive(Derivative)]
-#[derivative(Debug)]
+#[derivative(Debug, Clone)]
 pub struct ScratchDirectory {
     /// Root of the scratch directory.
     root_path: PbPath,

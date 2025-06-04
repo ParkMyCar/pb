@@ -7,7 +7,14 @@
 //!
 //! This crate contains the host implementations for our WIT interfaces.
 
-use pb_filesystem::path::PbPath;
+use pb_cfg::ConfigSet;
+use pb_filesystem::{
+    locations::{
+        repositories::RepositoryDirectory,
+        scratch::{self, ScratchDirectory},
+    },
+    path::PbPath,
+};
 use wasmtime::component::ResourceTable;
 
 use crate::wit::pb::rules::context::WriteClient;
@@ -61,35 +68,39 @@ pub struct HostState {
     pub resources: ResourceTable,
 }
 
+impl Clone for HostState {
+    fn clone(&self) -> Self {
+        HostState {
+            http_client: self.http_client.clone(),
+            filesystem: self.filesystem.clone(),
+            scratch_space: self.scratch_space.clone(),
+            repositories: self.repositories.clone(),
+            write_filesystem: self.write_filesystem.clone(),
+            logging_format: self.logging_format.clone(),
+            resources: ResourceTable::new(),
+        }
+    }
+}
+
 impl HostState {
-    pub async fn new() -> Self {
-        let filesystem = pb_filesystem::filesystem::Filesystem::new(4, 1024);
+    pub async fn new(
+        _configs: &ConfigSet,
+        http_client: reqwest::Client,
+        filesystem: pb_filesystem::filesystem::Filesystem,
+        scratch_space: ScratchDirectory,
+        repositories: RepositoryDirectory,
+    ) -> Result<Self, anyhow::Error> {
         let logging_format = crate::logger::LoggingFormat::from_env();
 
-        let root = "/Users/parker/.pb";
-        let root = PbPath::new(root.to_string()).unwrap();
-        let scratch_space = pb_filesystem::locations::scratch::ScratchDirectory::new(
-            root.clone(),
-            filesystem.clone(),
-        )
-        .await
-        .unwrap();
-        let repositories = pb_filesystem::locations::repositories::RepositoryDirectory::new(
-            root,
-            filesystem.clone(),
-        )
-        .await
-        .unwrap();
-
-        HostState {
-            http_client: reqwest::Client::default(),
+        Ok(HostState {
+            http_client,
             filesystem,
             scratch_space,
             repositories,
             write_filesystem: WriteClient::default(),
             logging_format,
             resources: ResourceTable::new(),
-        }
+        })
     }
 
     pub fn add_to_linker<T, U>(

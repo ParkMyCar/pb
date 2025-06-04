@@ -16,6 +16,7 @@ static REPOSITORY_DIRECTORY_NAME: &str = "repositories";
 /// See the [`ScratchDirectory`] API for creating files.
 ///
 /// [`ScratchDirectory`]: crate::locations::scratch::ScratchDirectory
+#[derive(Clone)]
 pub struct RepositoryDirectory {
     /// Handle to the repositories directory.
     root_handle: Arc<DirectoryHandle>,
