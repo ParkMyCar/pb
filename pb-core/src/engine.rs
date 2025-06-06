@@ -7,7 +7,6 @@ use derivative::Derivative;
 use futures::FutureExt;
 use pb_cfg::ConfigSet;
 use pb_filesystem::locations::repositories::RepositoryDirectory;
-use pb_filesystem::path::PbPath;
 use pb_filesystem::{filesystem::Filesystem, locations::scratch::ScratchDirectory};
 use pb_rules_host::HostState;
 
@@ -20,9 +19,9 @@ static STD_RULES_NAME: &str = "std";
 /// Configuration for creating a [`Engine`].
 pub struct EngineConfig {
     /// Root directory for `pb` metadata.
-    pub pb_root_dir: PbPath,
+    pub pb_root_dir: PathBuf,
     /// Root directory of the workspace, where the user's files live.
-    pub workspace_dir: PbPath,
+    pub workspace_dir: PathBuf,
     /// Dynamic configs for the build system.
     pub configs: ConfigSet,
 }
@@ -31,9 +30,9 @@ pub struct EngineConfig {
 #[derivative(Debug)]
 pub struct Engine {
     /// Root directory for `pb` metadata.
-    pb_root_dir: PbPath,
+    pb_root_dir: PathBuf,
     /// Root directory of the workspace, where the user's files live.
-    workspace_dir: PbPath,
+    workspace_dir: PathBuf,
     /// Specification for the rules, repositories, toolchains, and more for this workspace.
     spec: WorkspaceSpec,
 
@@ -75,7 +74,7 @@ impl Engine {
 
         let spec = {
             let filename = WORKSPACE_FILENAME.read(&configs);
-            let path = PathBuf::from(workspace_dir.inner.clone()).join(filename);
+            let path = workspace_dir.join(filename);
             tracing::info!(?path, "reading Workspace spec");
             let mut file = std::fs::File::open(path)?;
 

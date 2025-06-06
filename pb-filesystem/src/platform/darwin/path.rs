@@ -1,6 +1,9 @@
 //! Darwin specific paths.
 
-use std::ffi::CString;
+use std::{
+    ffi::{CString, OsString},
+    path::PathBuf,
+};
 
 use crate::platform::{PlatformFilename, PlatformPath};
 
@@ -30,8 +33,10 @@ impl DarwinPath {
 }
 
 impl PlatformPath for DarwinPath {
-    fn try_new(val: String) -> Result<Self, crate::Error> {
-        Ok(DarwinPath { inner: val })
+    fn try_new(val: PathBuf) -> Result<Self, crate::Error> {
+        // TODO: Don't go through String here.
+        let inner = val.to_str().expect("non UTF-8 path").to_string();
+        Ok(DarwinPath { inner })
     }
 }
 

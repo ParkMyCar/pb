@@ -1,8 +1,6 @@
-use std::io::Read;
+use std::{io::Read, path::PathBuf};
 
 use pb_cfg::ConfigSet;
-use pb_filesystem::path::PbPath;
-use pb_rules_host::{wit::pb::rules::types::Attribute, HostState};
 use tracing::Level;
 use tracing_subscriber::EnvFilter;
 use wasmtime::*;
@@ -26,8 +24,8 @@ async fn main2() -> Result<(), anyhow::Error> {
 
     // Create our Workspace instance.
     let engine_config = pb_core::EngineConfig {
-        pb_root_dir: PbPath::new("/Users/parker/.pb".to_string()).unwrap(),
-        workspace_dir: PbPath::new(workspace_root.to_string()).unwrap(),
+        pb_root_dir: PathBuf::from("/Users/parker/.pb"),
+        workspace_dir: PathBuf::from(workspace_root),
         configs,
     };
     let engine = pb_core::Engine::new(engine_config).await?;

@@ -9,7 +9,7 @@ fn smoketest_xattr() {
     let temp = tempfile::TempDir::new().unwrap();
     let path = temp.path().join("test-xattr");
 
-    let path = DarwinPath::try_new(path.to_string_lossy().to_string()).unwrap();
+    let path = DarwinPath::try_new(path).unwrap();
     let file = DarwinPlatform::open(path, OpenOptions::CREATE).unwrap();
 
     let xattr_name = DarwinFilename::try_new("com.pb.test".to_string()).unwrap();
@@ -30,11 +30,7 @@ fn smoketest_xattr() {
 #[test]
 fn smoketest_getpath() {
     let temp = tempfile::TempDir::new().unwrap();
-    let path = temp
-        .path()
-        .join("test-getpath")
-        .to_string_lossy()
-        .to_string();
+    let path = temp.path().join("test-getpath");
 
     let path = DarwinPath::try_new(path).unwrap();
     let file = DarwinPlatform::open(path.clone(), OpenOptions::CREATE).unwrap();

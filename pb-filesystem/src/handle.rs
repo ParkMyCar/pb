@@ -5,7 +5,9 @@ use pb_types::Timespec;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 
 use std::borrow::Cow;
+use std::ffi::OsString;
 use std::future::IntoFuture;
+use std::path::PathBuf;
 use std::pin::Pin;
 use std::sync::Arc;
 
@@ -163,7 +165,7 @@ impl Handle<DirectoryKind> {
             Arc::clone(&self.kind.permits),
             HandleLocation::At {
                 directory,
-                filename,
+                filename: filename.into(),
             },
         )
     }
@@ -288,7 +290,7 @@ pub struct DirectoryDetails {
 #[derive(Debug)]
 pub enum HandleLocation {
     /// Opening a path directly.
-    Path(String),
+    Path(PathBuf),
     /// Opening relative to a parent directory.
     At {
         directory: PlatformHandleType,

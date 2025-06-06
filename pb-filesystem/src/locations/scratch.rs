@@ -1,12 +1,12 @@
 use std::future::Future;
 use std::ops::{Deref, DerefMut};
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use derivative::Derivative;
 
 use crate::filesystem::Filesystem;
 use crate::handle::{DirectoryHandle, DirectoryKind, FileKind};
-use crate::path::PbPath;
 use crate::platform::{FilesystemPlatform, Platform, PlatformFilename};
 
 static SCRATCH_DIRECTORY_NAME: &str = "scratch";
@@ -28,7 +28,7 @@ static SCRATCH_XATTR_TAG_COMMENT_NAME: &str = "org.pb.scratch.comment";
 #[derivative(Debug, Clone)]
 pub struct ScratchDirectory {
     /// Root of the scratch directory.
-    root_path: PbPath,
+    root_path: PathBuf,
     /// Handle to the root of the scratch directory.
     #[derivative(Debug = "ignore")]
     root_handle: Arc<DirectoryHandle>,
@@ -39,13 +39,12 @@ pub struct ScratchDirectory {
 
 impl ScratchDirectory {
     /// Create a new [`ScratchDirectory`] at `root_path /`[`SCRATCH_DIRECTORY_NAME`].
-    pub async fn new(root: PbPath, filesystem: Filesystem) -> Result<Self, crate::Error> {
-        let root_path = format!("{}/{SCRATCH_DIRECTORY_NAME}", root.inner);
+    pub async fn new(root: PathBuf, filesystem: Filesystem) -> Result<Self, crate::Error> {
+        let root_path = root.join(SCRATCH_DIRECTORY_NAME);
         tracing::info!(?root_path, "starting Scratch Directory");
 
         // TODO: Implement automatic cleanup.
         let root_handle = filesystem.open(root_path.clone()).as_directory().await?;
-        let root_path = PbPath::new(root_path).expect("known good");
 
         Ok(ScratchDirectory {
             root_path,

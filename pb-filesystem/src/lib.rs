@@ -2,15 +2,13 @@
 
 pub mod filesystem;
 pub mod handle;
-pub mod path;
-pub mod platform;
 pub mod locations;
+pub mod platform;
 pub mod tree;
 
 #[cfg(test)]
 mod tests;
 
-use path::PbFilename;
 use pb_types::Timespec;
 
 /// Errors that can be returned from filesystem operations.
@@ -71,7 +69,7 @@ pub struct DirectoryEntry {
     /// Inode number of the file.
     pub inode: u64,
     /// Name of the entry.
-    pub name: PbFilename,
+    pub name: String,
     /// Kind of entry.
     pub kind: FileType,
 }

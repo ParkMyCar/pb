@@ -8,13 +8,7 @@
 //! This crate contains the host implementations for our WIT interfaces.
 
 use pb_cfg::ConfigSet;
-use pb_filesystem::{
-    locations::{
-        repositories::RepositoryDirectory,
-        scratch::{self, ScratchDirectory},
-    },
-    path::PbPath,
-};
+use pb_filesystem::locations::{repositories::RepositoryDirectory, scratch::ScratchDirectory};
 use wasmtime::component::ResourceTable;
 
 use crate::wit::pb::rules::context::WriteClient;

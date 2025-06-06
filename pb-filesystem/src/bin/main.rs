@@ -1,20 +1,20 @@
 use std::{path::Path, time::Instant};
 
 use notify::{RecursiveMode, Watcher};
-use pb_filesystem::{filesystem::Filesystem, path::PbPath};
+use pb_filesystem::filesystem::Filesystem;
 use pb_ore::iter::LendingIterator;
 
 use tracing_subscriber::EnvFilter;
 
 #[tokio::main(flavor = "current_thread")]
-async fn main2() {
+async fn main() {
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::from_default_env())
         .init();
 
-    let filesystem = Filesystem::new(4, 1024);
+    let filesystem = Filesystem::new(8, 1024);
     let root = filesystem
-        .open("/Users/parker.timmerman/Development".to_string())
+        .open("/Users/parker/Development")
         .as_directory()
         .await
         .unwrap();
@@ -44,7 +44,7 @@ async fn main2() {
 }
 
 #[tokio::main(flavor = "current_thread")]
-async fn main() -> Result<(), anyhow::Error> {
+async fn main2() -> Result<(), anyhow::Error> {
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::from_default_env())
         .init();
@@ -64,7 +64,6 @@ async fn main() -> Result<(), anyhow::Error> {
     let tree = root.tree().ignore(ignore_set).await?;
     println!("{tree}");
 
-    
     let (tx, rx) = std::sync::mpsc::channel();
 
     let mut watcher = notify::recommended_watcher(tx)?;
@@ -77,10 +76,7 @@ async fn main() -> Result<(), anyhow::Error> {
         let Ok(event) = res else {
             continue;
         };
-        let ignored = event
-            .paths
-            .iter()
-            .all(|path| tree.ignored(PbPath::new(path.to_string_lossy().to_string()).unwrap()));
+        let ignored = event.paths.iter().all(|path| tree.ignored(path));
         if ignored {
             continue;
         }

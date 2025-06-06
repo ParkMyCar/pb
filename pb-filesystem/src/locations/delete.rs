@@ -1,6 +1,6 @@
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
 
-use crate::{filesystem::Filesystem, handle::DirectoryHandle, path::PbPath};
+use crate::{filesystem::Filesystem, handle::DirectoryHandle};
 
 static DELETE_DIRECTORY_NAME: &str = "trash";
 
@@ -8,7 +8,7 @@ static DELETE_DIRECTORY_NAME: &str = "trash";
 /// asynchronously deleted.
 pub struct TrashDirectory {
     /// Root of the trash directory.
-    root_path: PbPath,
+    root_path: PathBuf,
     /// Handle to the root of the trash directory.
     root_handle: Arc<DirectoryHandle>,
     /// Handle to our filesystem abstraction.

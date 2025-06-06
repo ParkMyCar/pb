@@ -1,18 +1,20 @@
 //! Placeholder Platform that uses `todo!(...)` for all implementations.
 
+use std::path::PathBuf;
+
 use crate::platform::{OpenOptions, Platform, PlatformFilename, PlatformPath};
 use crate::DirectoryEntry;
 
 pub struct TodoPlatform;
 
 impl Platform for TodoPlatform {
-    type Path = String;
+    type Path = PathBuf;
     type Filename = String;
 
     type Handle = u64;
     type DirStream = Self::Handle;
 
-    fn open(_path: String, _options: OpenOptions) -> Result<Self::Handle, crate::Error> {
+    fn open(_path: PathBuf, _options: OpenOptions) -> Result<Self::Handle, crate::Error> {
         todo!("open")
     }
     fn openat(
@@ -33,7 +35,7 @@ impl Platform for TodoPlatform {
         todo!("mkdirat")
     }
 
-    fn stat(_path: String) -> Result<crate::FileStat, crate::Error> {
+    fn stat(_path: PathBuf) -> Result<crate::FileStat, crate::Error> {
         todo!("stat")
     }
 
@@ -110,8 +112,8 @@ impl Platform for TodoPlatform {
     }
 }
 
-impl PlatformPath for String {
-    fn try_new(val: String) -> Result<Self, crate::Error> {
+impl PlatformPath for PathBuf {
+    fn try_new(val: PathBuf) -> Result<Self, crate::Error> {
         Ok(val)
     }
 }

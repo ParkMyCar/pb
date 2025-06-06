@@ -1,7 +1,7 @@
 //! Abstract interface for a specific platform, e.g. `darwin`, `unix`, etc.
 
 use bitflags::bitflags;
-use std::fmt::Debug;
+use std::{ffi::OsString, fmt::Debug, path::PathBuf};
 
 use crate::{DirectoryEntry, Error, FileStat};
 
@@ -87,7 +87,7 @@ pub trait Platform {
 }
 
 pub trait PlatformPath: Debug + Clone {
-    fn try_new(val: String) -> Result<Self, crate::Error>;
+    fn try_new(val: PathBuf) -> Result<Self, crate::Error>;
 }
 
 pub trait PlatformFilename: Debug + Clone {

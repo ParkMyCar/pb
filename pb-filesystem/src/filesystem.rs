@@ -3,6 +3,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt;
 use std::future::Future;
+use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::Semaphore;
 
@@ -42,12 +43,12 @@ impl Filesystem {
         self.permits.available_permits()
     }
 
-    pub fn open(&self, path: String) -> HandleBuilder {
+    pub fn open<P: Into<PathBuf>>(&self, path: P) -> HandleBuilder {
         HandleBuilder::new(
             self.worker.clone(),
             self.drops_tx.clone(),
             Arc::clone(&self.permits),
-            HandleLocation::Path(path),
+            HandleLocation::Path(path.into()),
         )
     }
 
@@ -60,7 +61,7 @@ impl Filesystem {
         Ok(())
     }
 
-    pub async fn stat(&self, path: String) -> Result<FileStat, crate::Error> {
+    pub async fn stat(&self, path: PathBuf) -> Result<FileStat, crate::Error> {
         let path = PlatformPathType::try_new(path)?;
         let result = self.worker.run(|| FilesystemPlatform::stat(path)).await?;
         Ok(result)

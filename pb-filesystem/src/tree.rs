@@ -1,7 +1,9 @@
 use std::borrow::Cow;
 use std::collections::BTreeMap;
+use std::ffi::OsString;
 use std::fmt;
 use std::future::{Future, IntoFuture};
+use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::sync::Arc;
 
@@ -11,7 +13,6 @@ use tokio::sync::Semaphore;
 
 use crate::handle::internal::ReadIterator;
 use crate::handle::{DirectoryHandle, DirectoryKind, FileKind, Handle};
-use crate::path::PbPath;
 use crate::platform::{FilesystemPlatform, OpenOptions, Platform, PlatformPath, PlatformPathType};
 use crate::{FileStat, FileType};
 
@@ -19,7 +20,7 @@ use crate::{FileStat, FileType};
 #[derive(Debug)]
 pub struct MetadataTree<T: Clone> {
     /// Where this tree is rooted at.
-    root_path: PbPath,
+    root_path: PathBuf,
     /// Entries in the tree.
     root_node: TreeNode<T>,
     /// The ignore set this tree was created with.
@@ -34,33 +35,35 @@ impl<T: Clone> MetadataTree<T> {
         }
     }
 
-    pub fn ignored(&self, path: PbPath) -> bool {
+    pub fn ignored<P: AsRef<Path>>(&self, path: P) -> bool {
         let Some(globset) = self.ignore.as_ref() else {
             return false;
         };
-        globset.is_match(&path.inner)
+        globset.is_match(path.as_ref())
     }
 
-    pub fn get(&self, path: PbPath) -> Option<&TreeNode<T>> {
+    pub fn get<P: AsRef<Path>>(&self, path: P) -> Option<&TreeNode<T>> {
+        let path = path.as_ref();
         let mut node = &self.root_node;
         for component in path.components() {
             match node {
                 TreeNode::File { .. } => return None,
                 TreeNode::Directory { children, .. } => {
-                    node = children.get(component)?;
+                    node = children.get(component.as_os_str())?;
                 }
             }
         }
         Some(node)
     }
 
-    pub fn get_mut(&mut self, path: PbPath) -> Option<&mut TreeNode<T>> {
+    pub fn get_mut<P: AsRef<Path>>(&mut self, path: P) -> Option<&mut TreeNode<T>> {
+        let path = path.as_ref();
         let mut node = &mut self.root_node;
         for component in path.components() {
             match node {
                 TreeNode::File { .. } => return None,
                 TreeNode::Directory { children, .. } => {
-                    node = children.get_mut(component)?;
+                    node = children.get_mut(component.as_os_str())?;
                 }
             }
         }
@@ -71,7 +74,10 @@ impl<T: Clone> MetadataTree<T> {
 impl<T: Clone> fmt::Display for MetadataTree<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // TODO: This isn't optimal at all, just threw enough code at this to make it work.
-        let tree_node = TreeNodeWithName(self.root_path.inner.clone(), self.root_node.clone());
+        let tree_node = TreeNodeWithName(
+            self.root_path.as_os_str().to_os_string(),
+            self.root_node.clone(),
+        );
         let mut buf = Vec::new();
         ptree::write_tree(&tree_node, &mut buf).expect("TODO");
         let buf = String::from_utf8_lossy(&buf[..]);
@@ -86,13 +92,13 @@ enum TreeNode<T: Clone> {
         data: T,
     },
     Directory {
-        children: BTreeMap<String, TreeNode<T>>,
+        children: BTreeMap<OsString, TreeNode<T>>,
         recursive_size: usize,
     },
 }
 
 #[derive(Debug, Clone)]
-struct TreeNodeWithName<T: Clone>(String, TreeNode<T>);
+struct TreeNodeWithName<T: Clone>(OsString, TreeNode<T>);
 
 impl<T: Clone> ptree::TreeItem for TreeNodeWithName<T> {
     type Child = TreeNodeWithName<T>;
@@ -103,8 +109,8 @@ impl<T: Clone> ptree::TreeItem for TreeNodeWithName<T> {
         _style: &ptree::Style,
     ) -> std::io::Result<()> {
         match self.1 {
-            TreeNode::File { .. } => write!(f, "{}", self.0),
-            TreeNode::Directory { .. } => write!(f, "{}", self.0),
+            TreeNode::File { .. } => write!(f, "{}", self.0.display()),
+            TreeNode::Directory { .. } => write!(f, "{}", self.0.display()),
         }
     }
 
@@ -126,13 +132,13 @@ impl<K> Handle<K> {
     /// Get the absolute path that corresponds to this file handle.
     ///
     /// TODO: How does this interact when a single file has multiple hard links?
-    async fn fullpath(&self) -> Result<PbPath, crate::Error> {
+    async fn fullpath(&self) -> Result<PathBuf, crate::Error> {
         let inner = self.to_inner();
         let path = self
             .worker
             .run(move || FilesystemPlatform::fgetpath(inner))
             .await?;
-        let path = PbPath::new(path.into_inner())?;
+        let path = PathBuf::from(path.into_inner());
         Ok(path)
     }
 }
@@ -217,13 +223,13 @@ where
     type IntoFuture = Pin<Box<dyn Future<Output = Self::Output> + Send + 'a>>;
 
     fn into_future(self) -> Self::IntoFuture {
-        let handle_dir = |path: PbPath| {
+        let handle_dir = |path: PathBuf| {
             let worker_ = self.root_directory.worker.clone();
             let drops_tx_ = self.root_directory.drops_tx.clone();
             let permits_ = Arc::clone(&self.root_directory.kind.permits);
 
             async move {
-                let path = PlatformPathType::try_new(path.inner).expect("known valid");
+                let path = PlatformPathType::try_new(path).expect("known valid");
                 let permit = Semaphore::acquire_owned(permits_.clone())
                     .await
                     .expect("failed to acquire permit");
@@ -244,7 +250,7 @@ where
             }
         };
 
-        let handle_file = move |path: PbPath| {
+        let handle_file = move |path: PathBuf| {
             let worker_ = self.root_directory.worker.clone();
             let drops_tx_ = self.root_directory.drops_tx.clone();
             let permits_ = Arc::clone(&self.root_directory.kind.permits);
@@ -255,7 +261,7 @@ where
 
             async move {
                 // Open a handle to our path.
-                let path = PlatformPathType::try_new(path.inner).expect("known valid");
+                let path = PlatformPathType::try_new(path).expect("known valid");
                 let (stat, value) = match maybe_work_fn_.as_ref() {
                     None => {
                         let stat = worker_.run(|| FilesystemPlatform::stat(path)).await?;
@@ -308,7 +314,6 @@ where
             )
             .await?;
 
-            
             Ok(MetadataTree {
                 root_path: start_path,
                 root_node: TreeNode::Directory {
@@ -324,20 +329,20 @@ where
 
 /// Recursively walk a directory.
 fn walk_directory<'a, D, W, S, F1, F2>(
-    path: PbPath,
+    path: PathBuf,
     ignore: Option<&'a globset::GlobSet>,
     open_dir: &'a D,
     process_file: &'a W,
-) -> BoxFuture<'a, Result<(BTreeMap<String, TreeNode<S>>, usize), crate::Error>>
+) -> BoxFuture<'a, Result<(BTreeMap<OsString, TreeNode<S>>, usize), crate::Error>>
 where
     S: TreeFileMetadata,
     F1: Future<Output = Result<DirectoryHandle, crate::Error>> + Send,
     F2: Future<Output = Result<S, crate::Error>> + Send,
-    D: Fn(PbPath) -> F1 + Sync,
-    W: Fn(PbPath) -> F2 + Sync,
+    D: Fn(PathBuf) -> F1 + Sync,
+    W: Fn(PathBuf) -> F2 + Sync,
 {
     enum ProcessResult<S_: TreeFileMetadata> {
-        Directory((BTreeMap<String, TreeNode<S_>>, usize)),
+        Directory((BTreeMap<OsString, TreeNode<S_>>, usize)),
         File(S_),
     }
 
@@ -351,7 +356,7 @@ where
         let mut futures = Vec::new();
 
         for entry in entries {
-            let new_path = format!("{}/{}", &path.inner, &entry.name.inner);
+            let new_path = path.join(&entry.name);
             if let Some(ignore_glob_set) = ignore.as_ref() {
                 if ignore_glob_set.is_match(&new_path) {
                     continue;
@@ -360,18 +365,16 @@ where
 
             match entry.kind {
                 FileType::File => {
-                    let new_path = PbPath::new(new_path).expect("known valid");
                     // Drive all of the file futures in parallel.
                     let future = process_file(new_path)
-                        .map_ok(|val| (ProcessResult::File(val), entry.name.inner))
+                        .map_ok(|val| (ProcessResult::File(val), entry.name))
                         .boxed();
                     futures.push(future);
                 }
                 FileType::Directory => {
-                    let new_path = PbPath::new(new_path).expect("known valid");
                     // Drive all of the directory futures in parallel.
                     let future = walk_directory(new_path, ignore, open_dir, process_file)
-                        .map_ok(|result| (ProcessResult::Directory(result), entry.name.inner))
+                        .map_ok(|result| (ProcessResult::Directory(result), entry.name))
                         .boxed();
                     futures.push(future);
                 }
@@ -397,7 +400,7 @@ where
                 }
                 ProcessResult::File(data) => TreeNode::File { data },
             };
-            children.insert(filename, node);
+            children.insert(OsString::from(filename), node);
         }
 
         // Finally, include our own entries in the recursive sizing.

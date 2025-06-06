@@ -1,8 +1,8 @@
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use crate::filesystem::Filesystem;
 use crate::handle::DirectoryHandle;
-use crate::path::PbPath;
 
 static REPOSITORY_DIRECTORY_NAME: &str = "repositories";
 
@@ -26,10 +26,10 @@ pub struct RepositoryDirectory {
 
 impl RepositoryDirectory {
     /// Create a new [`RepositoryDirectory`] as `root_path /`[`REPOSITORY_DIRECTORY_NAME`].
-    pub async fn new(root: PbPath, filesystem: Filesystem) -> Result<Self, crate::Error> {
+    pub async fn new(root: PathBuf, filesystem: Filesystem) -> Result<Self, crate::Error> {
         tracing::info!(?root, "starting Repository Directory");
 
-        let root = filesystem.open(root.inner).as_directory().await?;
+        let root = filesystem.open(root).as_directory().await?;
         // Create the repository directory if it doesn't exist.
         //
         // TODO: Scan/index for existing repositories on startup.

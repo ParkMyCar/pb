@@ -2,7 +2,6 @@ use pb_ore::cast::CastFrom;
 use pb_types::Timespec;
 use std::ffi::{c_uint, CStr, CString};
 
-use crate::path::PbFilename;
 use crate::platform::darwin::path::DarwinFilename;
 use crate::platform::darwin::types::{rlimit, DarwinDirStream, DarwinHandle};
 use crate::platform::{OpenOptions, Platform, PlatformPath};
@@ -203,7 +202,7 @@ impl Platform for DarwinPlatform {
 
         while !dirent.is_null() {
             let entry = DirectoryEntry::try_from(unsafe { *dirent })?;
-            if !LISTDIR_IGNORED_NAMES.contains(&&*entry.name.inner) {
+            if !LISTDIR_IGNORED_NAMES.contains(&&*entry.name) {
                 entries.push(entry);
             }
             dirent = unsafe { syscalls::readdir(dir_stream) };
@@ -375,9 +374,9 @@ impl Platform for DarwinPlatform {
 
         let path = CStr::from_bytes_until_nul(&buffer[..])
             .expect("TODO")
-            .to_string_lossy()
-            .to_string();
-        let path = <Self::Path as PlatformPath>::try_new(path).expect("TODO");
+            .to_str()
+            .expect("non UTF8-Path");
+        let path = <Self::Path as PlatformPath>::try_new(path.into()).expect("TODO");
 
         Ok(path)
     }
@@ -457,7 +456,6 @@ impl TryFrom<types::dirent> for DirectoryEntry {
         let filename_len = usize::cast_from(filename_len);
         let filename = std::str::from_utf8(&filename_buf[..filename_len])
             .expect("invalid UTF-8 found with filename");
-        let filename = PbFilename::new(filename.to_string())?;
 
         let kind = match dirent.d_type {
             types::flags::DT_DIR => FileType::Directory,
@@ -471,7 +469,7 @@ impl TryFrom<types::dirent> for DirectoryEntry {
 
         Ok(DirectoryEntry {
             inode: dirent.d_ino,
-            name: filename,
+            name: filename.to_string(),
             kind,
         })
     }

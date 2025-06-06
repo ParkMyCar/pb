@@ -13,7 +13,7 @@ impl Filesystem {
 #[tokio::test]
 async fn smoketest_writing() {
     let temp = temp_dir();
-    let path = temp.join("test-writing.txt").to_string_lossy().to_string();
+    let path = temp.join("test-writing.txt");
 
     let filesystem = Filesystem::new_test();
     let (mut handle, _stat) = filesystem.open(path).as_file().with_create().await.unwrap();
@@ -38,7 +38,7 @@ async fn smoketest_writing() {
 #[tokio::test]
 async fn smoketest_mkdir() {
     let temp = tempfile::TempDir::new().unwrap();
-    let path = temp.path().join("mydir").to_string_lossy().to_string();
+    let path = temp.path().join("mydir");
 
     let filesystem = Filesystem::new_test();
     let handle = filesystem
@@ -77,7 +77,7 @@ async fn smoketest_tree() {
     let mut temp = tempfile::TempDir::new().unwrap();
     temp.disable_cleanup(true);
     println!("{:?}", temp.path());
-    let path = temp.path().join("tree_1").to_string_lossy().to_string();
+    let path = temp.path().join("tree_1");
 
     let filesystem = Filesystem::new_test();
     let handle = filesystem
