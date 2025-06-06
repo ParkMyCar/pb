@@ -8,3 +8,5 @@ include.workspace = true
 
 [dependencies]
 paste = "1"
+pb-types = { path = "../pb-types" }
+xxhash-rust = { version = "0.8", features = ["xxh3"] }

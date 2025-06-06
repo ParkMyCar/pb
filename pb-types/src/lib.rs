@@ -4,7 +4,7 @@
 
 /// Metadata we track for a file to determine when it's changed.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct FileMetadata {
+pub struct FileMetadata<T> {
     /// Size of the file in bytes.
     size: u64,
     /// Last modified time of the file.
@@ -14,7 +14,30 @@ pub struct FileMetadata {
     /// File mode/permissions.
     mode: u32,
     /// Fingerprint of the file contents, generally a hash.
-    fingerprint: [u8; 8],
+    fingerprint: T,
+}
+
+pub type FileMetadataXx64 = FileMetadata<Xxh64Hash>;
+pub type FileMetadataXx128 = FileMetadata<Xxh128Hash>;
+
+/// Hash from xxh64.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Xxh64Hash(u64);
+
+impl Xxh64Hash {
+    pub fn new(val: u64) -> Self {
+        Xxh64Hash(val)
+    }
+}
+
+/// Hash from xxh128.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Xxh128Hash(u128);
+
+impl Xxh128Hash {
+    pub fn new(val: u128) -> Self {
+        Xxh128Hash(val)
+    }
 }
 
 /// Time info returned from a `stat` call.

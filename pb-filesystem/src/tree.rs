@@ -22,6 +22,8 @@ pub struct MetadataTree<T: Clone> {
     root_path: PbPath,
     /// Entries in the tree.
     root_node: TreeNode<T>,
+    /// The ignore set this tree was created with.
+    ignore: Option<globset::GlobSet>,
 }
 
 impl<T: Clone> MetadataTree<T> {
@@ -30,6 +32,39 @@ impl<T: Clone> MetadataTree<T> {
             TreeNode::File { .. } => 1,
             TreeNode::Directory { recursive_size, .. } => recursive_size,
         }
+    }
+
+    pub fn ignored(&self, path: PbPath) -> bool {
+        let Some(globset) = self.ignore.as_ref() else {
+            return false;
+        };
+        globset.is_match(&path.inner)
+    }
+
+    pub fn get(&self, path: PbPath) -> Option<&TreeNode<T>> {
+        let mut node = &self.root_node;
+        for component in path.components() {
+            match node {
+                TreeNode::File { .. } => return None,
+                TreeNode::Directory { children, .. } => {
+                    node = children.get(component)?;
+                }
+            }
+        }
+        Some(node)
+    }
+
+    pub fn get_mut(&mut self, path: PbPath) -> Option<&mut TreeNode<T>> {
+        let mut node = &mut self.root_node;
+        for component in path.components() {
+            match node {
+                TreeNode::File { .. } => return None,
+                TreeNode::Directory { children, .. } => {
+                    node = children.get_mut(component)?;
+                }
+            }
+        }
+        Some(node)
     }
 }
 
@@ -124,7 +159,12 @@ where
 
     /// Closure that will be called with the contents of every closure.
     file_work: Option<
-        Arc<dyn for<'d> Fn(ReadIterator<'d>) -> Result<T, crate::Error> + Send + Sync + 'static>,
+        Arc<
+            dyn for<'d> Fn(&'d FileStat, ReadIterator<'d>) -> Result<T, crate::Error>
+                + Send
+                + Sync
+                + 'static,
+        >,
     >,
     /// Globset of files to ignore.
     ignore: Option<globset::GlobSet>,
@@ -145,7 +185,8 @@ impl<'a> TreeBuilder<'a, (), FileStat> {
     pub fn with_data<T, W>(self, work: W) -> TreeBuilder<'a, T, (FileStat, T)>
     where
         T: Clone + Send + 'static,
-        for<'d> W: Fn(ReadIterator<'d>) -> Result<T, crate::Error> + Send + Sync + 'static,
+        for<'d> W:
+            Fn(&'d FileStat, ReadIterator<'d>) -> Result<T, crate::Error> + Send + Sync + 'static,
     {
         TreeBuilder {
             root_directory: self.root_directory,
@@ -243,7 +284,9 @@ where
                             },
                         };
                         let work_fn_ = Arc::clone(work_fn);
-                        let value = handle.read_with(move |reader| work_fn_(reader)).await?;
+                        let value = handle
+                            .read_with(move |reader| work_fn_(&stat, reader))
+                            .await?;
                         handle.close().await?;
 
                         (stat, Some(value))
@@ -265,12 +308,14 @@ where
             )
             .await?;
 
+            
             Ok(MetadataTree {
                 root_path: start_path,
                 root_node: TreeNode::Directory {
                     children,
                     recursive_size,
                 },
+                ignore: self.ignore,
             })
         }
         .boxed()

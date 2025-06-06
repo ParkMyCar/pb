@@ -24,6 +24,10 @@ impl PbPath {
     pub fn new(val: String) -> Result<Self, crate::Error> {
         Ok(PbPath { inner: val })
     }
+
+    pub fn components(&self) -> impl Iterator<Item = &str> {
+        self.inner.split("/")
+    }
 }
 
 /// Filename component of a [`PbPath`].

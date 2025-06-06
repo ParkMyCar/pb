@@ -6,6 +6,6 @@ OPENSSL_VERSION = "3.3.1"
 
 [[target]]
 name = "openssl"
-rule = "std.http"
+rule = "std.http-repository"
 url = "https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz"
 integrity = "sha256-d3zVlihMiDN1oqehG/XSeG/FQTJV76sgxQ1v/m0CC34="

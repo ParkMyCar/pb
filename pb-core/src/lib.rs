@@ -21,6 +21,7 @@ use pb_cfg::ConfigSetBuilder;
 pub mod cfgs;
 pub mod defs;
 pub mod engine;
+pub mod metadata;
 pub mod rules;
 
 pub use engine::{Engine, EngineConfig};

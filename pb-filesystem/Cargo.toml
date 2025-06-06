@@ -7,27 +7,20 @@ license.workspace = true
 include.workspace = true
 
 [dependencies]
-async-stream = "0.3"
+anyhow = "1"
 bitflags = "2"
-blake3 = "1"
 cfg-if = "1"
 crossbeam = "0.8"
 derivative = "2"
 futures = "0.3"
 globset = "0.4"
+notify = "8"
 pb-ore = { path = "../pb-ore" }
 pb-types = { path = "../pb-types" }
 ptree = "0.5"
 rayon = "1"
 thiserror = "2"
-tokio = { version = "1", features = [
-    "fs",
-    "macros",
-    "rt-multi-thread",
-    "rt",
-    "io-util",
-    "sync",
-], default-features = false }
+tokio = { version = "1", features = ["macros", "rt", "sync"], default-features = false }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 uuid = { version = "1", features = ["v4"] }
