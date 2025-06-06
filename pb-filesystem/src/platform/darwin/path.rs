@@ -1,9 +1,6 @@
 //! Darwin specific paths.
 
-use std::{
-    ffi::{CString, OsString},
-    path::PathBuf,
-};
+use std::{ffi::CString, path::PathBuf};
 
 use crate::platform::{PlatformFilename, PlatformPath};
 

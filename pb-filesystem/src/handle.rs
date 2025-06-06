@@ -5,7 +5,6 @@ use pb_types::Timespec;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 
 use std::borrow::Cow;
-use std::ffi::OsString;
 use std::future::IntoFuture;
 use std::path::PathBuf;
 use std::pin::Pin;
@@ -98,7 +97,7 @@ impl<A> Handle<A> {
     }
 
     /// Set the mtime on the file.
-    pub async fn setmtime(&mut self, time: Timespec) -> Result<(), crate::Error> {
+    pub async fn setmtime(&mut self, _time: Timespec) -> Result<(), crate::Error> {
         todo!()
     }
 

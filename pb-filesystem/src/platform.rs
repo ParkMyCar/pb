@@ -1,7 +1,7 @@
 //! Abstract interface for a specific platform, e.g. `darwin`, `unix`, etc.
 
 use bitflags::bitflags;
-use std::{ffi::OsString, fmt::Debug, path::PathBuf};
+use std::{fmt::Debug, path::PathBuf};
 
 use crate::{DirectoryEntry, Error, FileStat};
 

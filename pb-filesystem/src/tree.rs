@@ -87,7 +87,7 @@ impl<T: Clone> fmt::Display for MetadataTree<T> {
 }
 
 #[derive(Debug, Clone)]
-enum TreeNode<T: Clone> {
+pub enum TreeNode<T: Clone> {
     File {
         data: T,
     },
