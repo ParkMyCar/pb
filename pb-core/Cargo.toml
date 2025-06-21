@@ -13,8 +13,10 @@ anyhow = "1"
 blake3 = "1"
 derivative = "2"
 futures = "0.3"
+pb-build-tree = { path = "../pb-build-tree" }
 pb-cfg = { path = "../pb-cfg" }
 pb-filesystem = { path = "../pb-filesystem" }
+pb-ore = { path = "../pb-ore" }
 pb-types = { path = "../pb-types" }
 pb-rules-host = { path = "../pb-rules-host" }
 reqwest = "0.12"

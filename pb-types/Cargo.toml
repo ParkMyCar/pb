@@ -11,7 +11,11 @@ name = "hashing"
 harness = false
 
 [dependencies]
+compact_str = "0.9"
+lasso = "0.7"
+rand = "0.9"
 xxhash-rust = { version = "0.8", features = ["xxh3", "xxh64"] }
+smallvec = { version = "1.15", features = ["union"] }
 
 [dev-dependencies]
 blake3 = "1"

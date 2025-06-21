@@ -32,27 +32,27 @@ pub enum Error {
 #[derive(Debug, Copy, Clone)]
 pub struct FileStat {
     /// Size of a file in bytes.
-    size: u64,
+    pub size: u64,
     /// Type of the file.
-    kind: FileType,
+    pub kind: FileType,
     /// Inode number of the file.
-    inode: u64,
+    pub inode: u64,
     /// File mode/permissions.
-    mode: u32,
+    pub mode: u32,
     /// User ID of the file owner.
-    user: u32,
+    pub user: u32,
     /// Group ID of the file owner.
-    group: u32,
+    pub group: u32,
     /// File modified time.
     ///
     /// Generally changes when the file content changes.
-    mtime: Timespec,
+    pub mtime: Timespec,
     /// Attribute change time.
     ///
     /// Changes whenever file ownership, size, or link count changes.
-    ctime: Timespec,
+    pub ctime: Timespec,
     /// Optimal blocksize for I/O, if available.
-    optimal_blocksize: Option<usize>,
+    pub optimal_blocksize: Option<usize>,
 }
 
 /// Kind of object on the filesystem.

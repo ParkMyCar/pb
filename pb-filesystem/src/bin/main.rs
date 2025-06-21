@@ -1,4 +1,8 @@
-use std::{path::Path, time::Instant};
+use std::{
+    path::Path,
+    sync::{atomic::AtomicUsize, Arc},
+    time::Instant,
+};
 
 use notify::{RecursiveMode, Watcher};
 use pb_filesystem::filesystem::Filesystem;
@@ -24,10 +28,13 @@ async fn main() {
     let ignore_set = ignore_set.build().unwrap();
 
     let start = Instant::now();
+    let num_files = Arc::new(AtomicUsize::new(0));
+    let num_files_ = Arc::clone(&num_files);
     let tree = root
         .tree()
         .ignore(ignore_set)
-        .with_data(|_stat, mut reader| {
+        .with_data(move |_stat, mut reader| {
+            num_files_.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             let mut hasher = xxhash_rust::xxh3::Xxh3Default::new();
             while let Some(read) = reader.next() {
                 let data = read?;
@@ -39,8 +46,9 @@ async fn main() {
         .unwrap();
     let elapsed = start.elapsed();
     root.close().await.unwrap();
+    let num_files = num_files.load(std::sync::atomic::Ordering::Relaxed);
 
-    println!("{elapsed:?}, {}", tree.size());
+    println!("{elapsed:?} for {num_files} files");
 }
 
 #[tokio::main(flavor = "current_thread")]

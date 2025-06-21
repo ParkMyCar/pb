@@ -1,0 +1,14 @@
+[rules]
+std = "*"
+rust = "*"
+
+[[target]]
+name = "bar_srcs"
+rule = "std.glob"
+include = "srcs/**/*.rs"
+
+[[target]]
+name = "bar"
+rule = "rust.library"
+srcs = [":bar_srcs"]
+deps = ["//library_a:foo"]

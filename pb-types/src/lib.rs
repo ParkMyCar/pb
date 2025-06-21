@@ -2,23 +2,40 @@
 //!
 //! The goal of this crate is to be very lightweight, so take care with adding dependencies.
 
+use std::path::PathBuf;
+
+use compact_str::CompactString;
+use smallvec::SmallVec;
+
 /// Metadata we track for a file to determine when it's changed.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FileMetadata<T> {
     /// Size of the file in bytes.
-    size: u64,
+    pub size: u64,
     /// Last modified time of the file.
-    mtime: Timespec,
+    pub mtime: Timespec,
     /// Inode of the file.
-    inode: u64,
+    pub inode: u64,
     /// File mode/permissions.
-    mode: u32,
+    pub mode: u32,
     /// Fingerprint of the file contents, generally a hash.
-    fingerprint: T,
+    pub fingerprint: T,
 }
 
 pub type FileMetadataXx64 = FileMetadata<Xxh64Hash>;
 pub type FileMetadataXx128 = FileMetadata<Xxh128Hash>;
+
+impl FileMetadataXx64 {
+    pub fn test_rand(rng: &mut impl rand::Rng) -> Self {
+        FileMetadata {
+            size: rng.random(),
+            mtime: Timespec::test_rand(rng),
+            inode: rng.random(),
+            mode: rng.random(),
+            fingerprint: Xxh64Hash(rng.random()),
+        }
+    }
+}
 
 /// Hash from xxh64.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -62,4 +79,52 @@ impl Timespec {
             nanos: nanos.try_into().expect("overlowed timespec"),
         }
     }
+
+    pub fn test_rand(rng: &mut impl rand::Rng) -> Self {
+        Timespec {
+            secs: rng.random(),
+            nanos: rng.random(),
+        }
+    }
 }
+
+/// Location of a [`BuildTarget`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BuildTargetPath {
+    /// The repository we're located in. `None` indicates the root workspace.
+    pub repository: CompactString,
+    /// Path to the directory containing the manifest file.
+    pub parents: PathBuf,
+    /// Name of the target.
+    pub name: CompactString,
+}
+
+/// A single target in our build graph.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BuildTarget {
+    /// Name of the rule this target uses.
+    pub rule: CompactString,
+
+    /// Dependencies on other build targets.
+    pub build_deps: Vec<BuildTargetPath>,
+    /// Dependencies on source files.
+    pub source_deps: Vec<SourceDependency>,
+}
+
+/// Types of source file dependencies that a [`BuildTarget`] can have.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SourceDependency {
+    /// A single file.
+    File(PathBuf),
+    /// A glob of files.
+    Glob(CompactString),
+    /// Outputs of another build rule.
+    Rule(BuildTargetPath),
+}
+
+/// A path whose components are in a [`lasso::Rodeo`].
+#[derive(Clone, Debug)]
+pub struct InternedPath(pub SmallVec<[InternedComponent; 8]>);
+
+/// A single component within an [`InternedPath`].
+pub type InternedComponent = lasso::Spur;

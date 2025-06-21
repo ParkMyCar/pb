@@ -1,14 +1,17 @@
 use std::borrow::Cow;
+use std::cell::RefCell;
 use std::collections::BTreeMap;
-use std::ffi::OsString;
 use std::fmt;
 use std::future::{Future, IntoFuture};
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
+use std::rc::Rc;
 use std::sync::Arc;
 
-use futures::future::{BoxFuture, TryFutureExt};
+use futures::future::{LocalBoxFuture, TryFutureExt};
 use futures::FutureExt;
+use pb_trie::{TrieMap, TrieNode};
+use pb_types::InternedPath;
 use tokio::sync::Semaphore;
 
 use crate::handle::internal::ReadIterator;
@@ -22,109 +25,31 @@ pub struct MetadataTree<T: Clone> {
     /// Where this tree is rooted at.
     root_path: PathBuf,
     /// Entries in the tree.
-    root_node: TreeNode<T>,
+    trie: pb_trie::TrieMap<InternedPath, (), T>,
     /// The ignore set this tree was created with.
     ignore: Option<globset::GlobSet>,
+    /// Interned strings.
+    strings: lasso::Rodeo,
 }
 
 impl<T: Clone> MetadataTree<T> {
-    pub fn size(&self) -> usize {
-        match self.root_node {
-            TreeNode::File { .. } => 1,
-            TreeNode::Directory { recursive_size, .. } => recursive_size,
-        }
-    }
-
+    /// Returns if the provided path is ignored by the [`MetadataTree`]'s initial globset.
     pub fn ignored<P: AsRef<Path>>(&self, path: P) -> bool {
         let Some(globset) = self.ignore.as_ref() else {
             return false;
         };
         globset.is_match(path.as_ref())
     }
-
-    pub fn get<P: AsRef<Path>>(&self, path: P) -> Option<&TreeNode<T>> {
-        let path = path.as_ref();
-        let mut node = &self.root_node;
-        for component in path.components() {
-            match node {
-                TreeNode::File { .. } => return None,
-                TreeNode::Directory { children, .. } => {
-                    node = children.get(component.as_os_str())?;
-                }
-            }
-        }
-        Some(node)
-    }
-
-    pub fn get_mut<P: AsRef<Path>>(&mut self, path: P) -> Option<&mut TreeNode<T>> {
-        let path = path.as_ref();
-        let mut node = &mut self.root_node;
-        for component in path.components() {
-            match node {
-                TreeNode::File { .. } => return None,
-                TreeNode::Directory { children, .. } => {
-                    node = children.get_mut(component.as_os_str())?;
-                }
-            }
-        }
-        Some(node)
-    }
 }
 
 impl<T: Clone> fmt::Display for MetadataTree<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // TODO: This isn't optimal at all, just threw enough code at this to make it work.
-        let tree_node = TreeNodeWithName(
-            self.root_path.as_os_str().to_os_string(),
-            self.root_node.clone(),
-        );
-        let mut buf = Vec::new();
-        ptree::write_tree(&tree_node, &mut buf).expect("TODO");
-        let buf = String::from_utf8_lossy(&buf[..]);
-        write!(f, "{buf}")?;
+        let pretty_trie = self.trie.pretty(|f, component| {
+            let name = self.strings.resolve(component);
+            f.write_all(name.as_bytes())
+        });
+        write!(f, "{pretty_trie}")?;
         Ok(())
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum TreeNode<T: Clone> {
-    File {
-        data: T,
-    },
-    Directory {
-        children: BTreeMap<OsString, TreeNode<T>>,
-        recursive_size: usize,
-    },
-}
-
-#[derive(Debug, Clone)]
-struct TreeNodeWithName<T: Clone>(OsString, TreeNode<T>);
-
-impl<T: Clone> ptree::TreeItem for TreeNodeWithName<T> {
-    type Child = TreeNodeWithName<T>;
-
-    fn write_self<W: std::io::Write>(
-        &self,
-        f: &mut W,
-        _style: &ptree::Style,
-    ) -> std::io::Result<()> {
-        match self.1 {
-            TreeNode::File { .. } => write!(f, "{}", self.0.display()),
-            TreeNode::Directory { .. } => write!(f, "{}", self.0.display()),
-        }
-    }
-
-    fn children(&self) -> Cow<[Self::Child]> {
-        match &self.1 {
-            TreeNode::File { .. } => Cow::Owned(vec![]),
-            TreeNode::Directory { children, .. } => {
-                let children: Vec<_> = children
-                    .iter()
-                    .map(|(name, node)| TreeNodeWithName(name.clone(), node.clone()))
-                    .collect();
-                Cow::Owned(children)
-            }
-        }
     }
 }
 
@@ -220,7 +145,7 @@ where
     S: TreeFileMetadata<Value = T>,
 {
     type Output = Result<MetadataTree<S>, crate::Error>;
-    type IntoFuture = Pin<Box<dyn Future<Output = Self::Output> + Send + 'a>>;
+    type IntoFuture = Pin<Box<dyn Future<Output = Self::Output> + 'a>>;
 
     fn into_future(self) -> Self::IntoFuture {
         let handle_dir = |path: PathBuf| {
@@ -305,25 +230,27 @@ where
         };
 
         async move {
+            let strings = Rc::new(RefCell::new(lasso::Rodeo::new()));
             let start_path = self.root_directory.fullpath().await?;
-            let (children, recursive_size) = walk_directory(
+            let children = walk_directory(
                 start_path.clone(),
                 self.ignore.as_ref(),
                 &handle_dir,
                 &handle_file,
+                strings.clone(),
             )
             .await?;
+            // All of the futures have completed by now so this is safe.
+            let strings = strings.take();
 
             Ok(MetadataTree {
                 root_path: start_path,
-                root_node: TreeNode::Directory {
-                    children,
-                    recursive_size,
-                },
+                trie: TrieMap::from_node(TrieNode::Edge { children, data: () }),
                 ignore: self.ignore,
+                strings,
             })
         }
-        .boxed()
+        .boxed_local()
     }
 }
 
@@ -333,7 +260,8 @@ fn walk_directory<'a, D, W, S, F1, F2>(
     ignore: Option<&'a globset::GlobSet>,
     open_dir: &'a D,
     process_file: &'a W,
-) -> BoxFuture<'a, Result<(BTreeMap<OsString, TreeNode<S>>, usize), crate::Error>>
+    strings: Rc<RefCell<lasso::Rodeo>>,
+) -> LocalBoxFuture<'a, Result<BTreeMap<lasso::Spur, TrieNode<InternedPath, (), S>>, crate::Error>>
 where
     S: TreeFileMetadata,
     F1: Future<Output = Result<DirectoryHandle, crate::Error>> + Send,
@@ -342,7 +270,7 @@ where
     W: Fn(PathBuf) -> F2 + Sync,
 {
     enum ProcessResult<S_: TreeFileMetadata> {
-        Directory((BTreeMap<OsString, TreeNode<S_>>, usize)),
+        Directory(BTreeMap<lasso::Spur, TrieNode<InternedPath, (), S_>>),
         File(S_),
     }
 
@@ -352,7 +280,6 @@ where
         let entries = handle.list().await?;
 
         let mut children = BTreeMap::default();
-        let mut recursive_size: usize = 0;
         let mut futures = Vec::new();
 
         for entry in entries {
@@ -368,14 +295,20 @@ where
                     // Drive all of the file futures in parallel.
                     let future = process_file(new_path)
                         .map_ok(|val| (ProcessResult::File(val), entry.name))
-                        .boxed();
+                        .boxed_local();
                     futures.push(future);
                 }
                 FileType::Directory => {
                     // Drive all of the directory futures in parallel.
-                    let future = walk_directory(new_path, ignore, open_dir, process_file)
-                        .map_ok(|result| (ProcessResult::Directory(result), entry.name))
-                        .boxed();
+                    let future = walk_directory(
+                        new_path,
+                        ignore,
+                        open_dir,
+                        process_file,
+                        Rc::clone(&strings),
+                    )
+                    .map_ok(|result| (ProcessResult::Directory(result), entry.name))
+                    .boxed_local();
                     futures.push(future);
                 }
                 FileType::Symlink => (),
@@ -388,28 +321,20 @@ where
         // Drive all of the child directories in parallel.
         for result in futures::future::join_all(futures).await {
             let (process_result, filename) = result?;
+            let name = strings.borrow_mut().get_or_intern(filename);
             let node = match process_result {
-                ProcessResult::Directory((recursive_children, size)) => {
-                    recursive_size = recursive_size
-                        .checked_add(size)
-                        .expect("more than usize number of entries");
-                    TreeNode::Directory {
-                        children: recursive_children,
-                        recursive_size: size,
-                    }
-                }
-                ProcessResult::File(data) => TreeNode::File { data },
+                ProcessResult::Directory(recursive_children) => TrieNode::Edge {
+                    children: recursive_children,
+                    data: (),
+                },
+                ProcessResult::File(data) => TrieNode::Leaf { data },
             };
-            children.insert(OsString::from(filename), node);
+            children.insert(name, node);
         }
 
-        // Finally, include our own entries in the recursive sizing.
-        recursive_size = recursive_size
-            .checked_add(children.len())
-            .expect("more than usize number of entries");
-        Ok((children, recursive_size))
+        Ok(children)
     }
-    .boxed()
+    .boxed_local()
 }
 
 pub trait TreeFileMetadata: Clone + Send + 'static {

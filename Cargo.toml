@@ -1,12 +1,15 @@
 [workspace]
 members = [
+    "pb-build-tree",
     "pb-cfg",
     "pb-cli",
     "pb-core",
+    "pb-file-tree",
     "pb-filesystem",
     "pb-ore",
     "pb-rules-host",
     "pb-rules-sdk",
+    "pb-trie",
     "pb-types",
 ]
 resolver = "2"

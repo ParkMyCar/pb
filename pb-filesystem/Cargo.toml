@@ -14,8 +14,10 @@ crossbeam = "0.8"
 derivative = "2"
 futures = "0.3"
 globset = "0.4"
+lasso = "0.7"
 notify = "8"
 pb-ore = { path = "../pb-ore" }
+pb-trie = { path = "../pb-trie" }
 pb-types = { path = "../pb-types" }
 ptree = "0.5"
 rayon = "1"

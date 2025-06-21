@@ -1,0 +1,18 @@
+[package]
+name = "pb-file-tree"
+version = "0.1.0"
+edition = "2024"
+authors.workspace = true
+license.workspace = true
+include.workspace = true
+
+[dependencies]
+anyhow = "1"
+crossbeam = "0.8"
+globset = "0.4"
+pb-filesystem = { path = "../pb-filesystem" }
+notify = "8"
+notify-debouncer-mini = "0.6"
+tokio = { version = "1", features = ["macros", "rt", "time", "sync"], default-features = false }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }

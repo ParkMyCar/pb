@@ -5,9 +5,11 @@ use std::path::PathBuf;
 
 use derivative::Derivative;
 use futures::FutureExt;
+use pb_build_tree::BuildTree;
 use pb_cfg::ConfigSet;
 use pb_filesystem::locations::repositories::RepositoryDirectory;
 use pb_filesystem::{filesystem::Filesystem, locations::scratch::ScratchDirectory};
+use pb_ore::iter::LendingIterator;
 use pb_rules_host::HostState;
 
 use crate::defs::{WorkspaceSpec, WORKSPACE_FILENAME};
@@ -35,6 +37,9 @@ pub struct Engine {
     workspace_dir: PathBuf,
     /// Specification for the rules, repositories, toolchains, and more for this workspace.
     spec: WorkspaceSpec,
+
+    /// Tree of the entire workspace.
+    build_tree: BuildTree,
 
     /// Client for making HTTP requests.
     http_client: reqwest::Client,
@@ -110,6 +115,9 @@ impl Engine {
         let scratch_dir = scratch_dir?;
         let repositories_dir = repositories_dir?;
 
+        // Create a new BuildTree which will be initialized in a later step.
+        let build_tree = BuildTree::new();
+
         // Create the host state required for running WASM guest functions.
         let host_state = HostState::new(
             &configs,
@@ -124,6 +132,7 @@ impl Engine {
             pb_root_dir,
             workspace_dir,
             spec,
+            build_tree,
             configs,
             http_client,
             filesystem,
@@ -133,6 +142,29 @@ impl Engine {
             wasm_linker,
             host_state,
         })
+    }
+
+    pub async fn load_build_tree(&mut self) -> Result<(), anyhow::Error> {
+        let handle = self
+            .filesystem
+            .open(&self.workspace_dir)
+            .as_directory()
+            .diagnostics("load build tree")
+            .await?;
+
+        let tree = handle
+            .tree()
+            .with_data(|stat, mut reader| {
+                let hasher = pb_ore::hash::Xxh3Hasher::new();
+                while let Some(read) = reader.next() {
+                    let data = read?;
+                    hasher.update(data);
+                }
+                Ok(hasher.digest())
+            })
+            .await?;
+
+        Ok(tree)
     }
 
     pub async fn load_rules(&self) -> Result<StdRules, anyhow::Error> {

@@ -1,0 +1,22 @@
+[package]
+name = "pb-build-tree"
+version = "0.1.0"
+edition = "2024"
+authors.workspace = true
+license.workspace = true
+include.workspace = true
+
+[dependencies]
+anyhow = "1"
+compact_str = "0.9"
+derivative = "2"
+globset = "0.4"
+lasso = "0.7"
+pb-ore = { path = "../pb-ore" }
+pb-trie = { path = "../pb-trie" }
+pb-types = { path = "../pb-types" }
+ptree = "0.5"
+smallvec = { version = "1.15", features = ["union"] }
+
+[dev-dependencies]
+rand = { version = "0.9", features = ["small_rng"] }
