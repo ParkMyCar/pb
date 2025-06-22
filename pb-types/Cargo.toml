@@ -15,7 +15,9 @@ compact_str = "0.9"
 lasso = "0.7"
 rand = "0.9"
 xxhash-rust = { version = "0.8", features = ["xxh3", "xxh64"] }
+semver = "1"
 smallvec = { version = "1.15", features = ["union"] }
+target-lexicon = "0.13"
 
 [dev-dependencies]
 blake3 = "1"

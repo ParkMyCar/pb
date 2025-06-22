@@ -22,7 +22,9 @@ pub mod cfgs;
 pub mod defs;
 pub mod engine;
 pub mod metadata;
+pub mod rebuilder;
 pub mod rules;
+pub mod scheduler;
 
 pub use engine::{Engine, EngineConfig};
 

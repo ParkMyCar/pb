@@ -128,3 +128,52 @@ pub struct InternedPath(pub SmallVec<[InternedComponent; 8]>);
 
 /// A single component within an [`InternedPath`].
 pub type InternedComponent = lasso::Spur;
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub enum BuildKey {
+    /// User-defined target (from BUILD.pb or manifest).
+    Target {
+        /// Where it's defined (e.g., "//src/lib/BUILD.pb").
+        location: PathBuf,
+        /// Target name within that file.
+        name: String,
+        /// Build configuration.
+        config: CompileConfig,
+    },
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub struct CompileConfig {
+    /// Name of the compiler.
+    compiler: CompactString,
+    /// Version of the compiler.
+    version: semver::Version,
+    /// Target we're building for.
+    target_triple: target_lexicon::Triple,
+    /// Optimization level we're compiling for.
+    opt_level: OptimizationLevel,
+    /// Compilation flags that effect the output.
+    flags: Vec<CompactString>,
+}
+
+/// Represents compiler optimization levels across different compilers.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum OptimizationLevel {
+    /// No optimization - fastest compilation, slowest execution, best debugging.
+    None,
+    /// Basic optimization - minimal performance improvements.
+    Basic,
+    /// Standard optimization - good balance of performance and compilation time.
+    Standard,
+    /// Apply All optimizations - maximum performance, slower compilation.
+    All,
+    /// Optimize for binary size over speed.
+    Size,
+    /// Aggressively optimize for smallest binary size.
+    MinSize,
+
+    /// Maximum performance, may break standards compliance.
+    MaxPerformence,
+    /// Debug-friendly optimization - some performance with preserved debugging.
+    Debug,
+}

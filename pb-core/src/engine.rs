@@ -155,7 +155,7 @@ impl Engine {
         let tree = handle
             .tree()
             .with_data(|stat, mut reader| {
-                let hasher = pb_ore::hash::Xxh3Hasher::new();
+                let mut hasher = pb_ore::hash::Xxh3Hasher::new();
                 while let Some(read) = reader.next() {
                     let data = read?;
                     hasher.update(data);
@@ -164,7 +164,8 @@ impl Engine {
             })
             .await?;
 
-        Ok(tree)
+        // Ok(tree)
+        Ok(())
     }
 
     pub async fn load_rules(&self) -> Result<StdRules, anyhow::Error> {
